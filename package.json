@@ -1,0 +1,41 @@
+{
+  "name": "orbis-chronos",
+  "version": "1.0.0",
+  "description": "寰宇纪年 · 三维历史版图地球：在真实地球贴图上按年代浏览前 10000 年—2025 年的各国疆域，含时间轴、历史大事标注与科幻风特效",
+  "type": "module",
+  "private": true,
+  "keywords": [
+    "globe",
+    "three.js",
+    "globe.gl",
+    "historical-maps",
+    "geojson",
+    "dataviz",
+    "webgl",
+    "history"
+  ],
+  "license": "MIT",
+  "scripts": {
+    "start": "node scripts/serve.mjs 3180",
+    "check": "node scripts/check.mjs",
+    "data:build": "node scripts/build-data.mjs",
+    "data:index": "node scripts/build-index.mjs",
+    "assets:fetch": "node scripts/fetch-assets.mjs",
+    "textures:optimize": "python scripts/optimize_textures.py --force",
+    "verify": "node scripts/verify.mjs 1900 1500 bc1000 2025",
+    "perf": "node scripts/perf.mjs",
+    "tune": "node scripts/tune.mjs",
+    "measure": "node scripts/measure-data.mjs 1900 1492"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/<your-account>/orbis-chronos.git"
+  },
+  "homepage": "https://github.com/<your-account>/orbis-chronos#readme",
+  "bugs": {
+    "url": "https://github.com/<your-account>/orbis-chronos/issues"
+  }
+}

@@ -1,0 +1,14 @@
+# 统一换行与文本处理（跨平台协作）
+* text=auto eol=lf
+
+# 二进制资源不做换行转换
+*.jpg binary
+*.jpeg binary
+*.png binary
+*.webp binary
+*.ico binary
+
+# 数据文件是单行大 JSON，diff 意义有限
+data/eras/*.json -diff
+data/modern.json -diff
+data/name-index.json -diff

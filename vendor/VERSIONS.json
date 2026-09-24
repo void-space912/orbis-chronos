@@ -1,0 +1,36 @@
+{
+  "note": "第三方运行时资源，按固定版本固化，页面不依赖外部 CDN。",
+  "fetchedAt": "2026-09-24T12:45:08.018Z",
+  "assets": [
+    {
+      "url": "https://cdn.jsdelivr.net/npm/globe.gl@2.46.2/dist/globe.gl.min.js",
+      "file": "vendor/globe.gl.min.js",
+      "bytes": 1885160,
+      "sha256": "2c3e445c04d121215910a89688b96091c8a72071c122a4f830081a39b636c94c"
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/npm/three-globe@2.45.2/example/img/earth-blue-marble.jpg",
+      "file": "vendor/img/earth-blue-marble.jpg",
+      "bytes": 1461877,
+      "sha256": "228deba2e4b600146bdcb6cfa359b8ead6aacc2b1c13550a29cd82824cfa1c01"
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/npm/three-globe@2.45.2/example/img/earth-topology.png",
+      "file": "vendor/img/earth-topology.png",
+      "bytes": 378243,
+      "sha256": "839b12da2e4dd346b256cebae72e10c479a102c8980a22084c41275e4b9a0e12"
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/npm/three-globe@2.45.2/example/img/earth-water.png",
+      "file": "vendor/img/earth-water.png",
+      "bytes": 430200,
+      "sha256": "3a8132db56aac4e64e7fcbf2928ee970c075ac6a96b38798d0bb8be82836a4d3"
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/npm/three-globe@2.45.2/example/img/night-sky.png",
+      "file": "vendor/img/night-sky.png",
+      "bytes": 904154,
+      "sha256": "7e1d5e780301e3a33bd79fd3ac414f7a742465f33ae4605abca743d43a3ab983"
+    }
+  ]
+}

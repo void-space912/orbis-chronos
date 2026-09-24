@@ -1,0 +1,875 @@
+{
+  "builtAt": "2026-09-24T13:49:47.056Z",
+  "eras": [
+    {
+      "key": "bc10000",
+      "year": -10000,
+      "count": 13,
+      "bytes": 41179,
+      "top": [
+        "Aboriginal tribes",
+        "Khoisan",
+        "Austronesians",
+        "Hunters-gatherers",
+        "Steppe Mesolithic Hunter-Foragers",
+        "Coastal and Woodland Mesolithic Hunter-Foragers",
+        "Okhotsk culture",
+        "Jōmon"
+      ]
+    },
+    {
+      "key": "bc8000",
+      "year": -8000,
+      "count": 14,
+      "bytes": 45764,
+      "top": [
+        "Bantu",
+        "Aboriginal tribes",
+        "Khoisan",
+        "Austronesians",
+        "Hunters-gatherers",
+        "Steppe Mesolithic Hunter-Foragers",
+        "Coastal and Woodland Mesolithic Hunter-Foragers",
+        "Okhotsk culture"
+      ]
+    },
+    {
+      "key": "bc5000",
+      "year": -5000,
+      "count": 28,
+      "bytes": 366918,
+      "top": [
+        "Bantu",
+        "Aboriginal tribes",
+        "Khoisan",
+        "Austronesians",
+        "Kelteminar culture",
+        "Funnel-Beaker",
+        "Dravidians",
+        "Norte Chico"
+      ]
+    },
+    {
+      "key": "bc4000",
+      "year": -4000,
+      "count": 23,
+      "bytes": 57403,
+      "top": [
+        "Bantu",
+        "Aboriginal tribes",
+        "Khoisan",
+        "Semites",
+        "Austronesians",
+        "Indus valley civilization",
+        "Hunters-gatherers",
+        "Ur"
+      ]
+    },
+    {
+      "key": "bc3000",
+      "year": -3000,
+      "count": 25,
+      "bytes": 61015,
+      "top": [
+        "Bantu",
+        "Aboriginal tribes",
+        "Khoisan",
+        "Semites",
+        "Yamnaya culture",
+        "Austronesians",
+        "Afanasevo",
+        "Indus valley civilization"
+      ]
+    },
+    {
+      "key": "bc2000",
+      "year": -2000,
+      "count": 45,
+      "bytes": 247100,
+      "top": [
+        "Archaic Amerindian hunter-gatherers",
+        "Bantu",
+        "Saharan pastoral nomads",
+        "Paleo-Siberian hunter-gatherers",
+        "Australian aboriginal hunter-gatherers",
+        "Khoisan",
+        "Austro-Asiatic rice cultures",
+        "Arctic marine mammal hunters"
+      ]
+    },
+    {
+      "key": "bc1500",
+      "year": -1500,
+      "count": 68,
+      "bytes": 289198,
+      "top": [
+        "Khoisan",
+        "Saharan pastoral nomads",
+        "Paleo-Siberian hunter-gatherers",
+        "Australian aboriginal hunter-gatherers",
+        "West African cereal farmers",
+        "Arctic marine mammal hunters",
+        "Proto-Altaic pastoralists",
+        "Savanna hunter-gatherers"
+      ]
+    },
+    {
+      "key": "bc1000",
+      "year": -1000,
+      "count": 69,
+      "bytes": 290774,
+      "top": [
+        "Khoisan",
+        "Saharan pastoral nomads",
+        "Paleo-Siberian hunter-gatherers",
+        "Australian aboriginal hunter-gatherers",
+        "West African cereal farmers",
+        "Arctic marine mammal hunters",
+        "Proto-Altaic pastoralists",
+        "Savanna hunter-gatherers"
+      ]
+    },
+    {
+      "key": "bc700",
+      "year": -700,
+      "count": 73,
+      "bytes": 292467,
+      "top": [
+        "Khoisan",
+        "Saharan pastoral nomads",
+        "Paleo-Siberian hunter-gatherers",
+        "Australian aboriginal hunter-gatherers",
+        "West African cereal farmers",
+        "Arctic marine mammal hunters",
+        "Proto-Altaic pastoralists",
+        "Savanna hunter-gatherers"
+      ]
+    },
+    {
+      "key": "bc500",
+      "year": -500,
+      "count": 74,
+      "bytes": 263811,
+      "top": [
+        "Khoisan",
+        "Saharan pastoral nomads",
+        "Paleo-Siberian hunter-gatherers",
+        "Australian aboriginal hunter-gatherers",
+        "West African cereal farmers",
+        "Achaemenid Empire",
+        "Arctic marine mammal hunters",
+        "Proto-Altaic pastoralists"
+      ]
+    },
+    {
+      "key": "bc400",
+      "year": -400,
+      "count": 76,
+      "bytes": 293401,
+      "top": [
+        "Khoisan",
+        "Saharan pastoral nomads",
+        "Australian aboriginal hunter-gatherers",
+        "Paleo-Siberian hunter-gatherers",
+        "West African cereal farmers",
+        "Achaemenid Empire",
+        "Arctic marine mammal hunters",
+        "Manioc farmers"
+      ]
+    },
+    {
+      "key": "bc323",
+      "year": -323,
+      "count": 68,
+      "bytes": 233213,
+      "top": [
+        "Khoisan",
+        "Saharan pastoral nomads",
+        "Paleo-Siberian hunter-gatherers",
+        "Australian aboriginal hunter-gatherers",
+        "West African cereal farmers",
+        "Arctic marine mammal hunters",
+        "Empire of Alexander",
+        "Manioc farmers"
+      ]
+    },
+    {
+      "key": "bc300",
+      "year": -300,
+      "count": 73,
+      "bytes": 236485,
+      "top": [
+        "Khoisan",
+        "Saharan pastoral nomads",
+        "Paleo-Siberian hunter-gatherers",
+        "Australian aboriginal hunter-gatherers",
+        "West African cereal farmers",
+        "Arctic marine mammal hunters",
+        "Manioc farmers",
+        "Savanna hunter-gatherers"
+      ]
+    },
+    {
+      "key": "bc200",
+      "year": -200,
+      "count": 86,
+      "bytes": 329142,
+      "top": [
+        "Khoisan",
+        "Saharan pastoral nomads",
+        "Paleo-Siberian hunter-gatherers",
+        "Australian aboriginal hunter-gatherers",
+        "West African cereal farmers",
+        "Scythians",
+        "Arctic marine mammal hunters",
+        "Manioc farmers"
+      ]
+    },
+    {
+      "key": "bc100",
+      "year": -100,
+      "count": 84,
+      "bytes": 238208,
+      "top": [
+        "Khoisan",
+        "Paleo-Siberian hunter-gatherers",
+        "Australian aboriginal hunter-gatherers",
+        "West African cereal farmers",
+        "Arctic marine mammal hunters",
+        "Manioc farmers",
+        "Savanna hunter-gatherers",
+        "Amazon hunter-gatherers"
+      ]
+    },
+    {
+      "key": "bc1",
+      "year": -1,
+      "count": 79,
+      "bytes": 243804,
+      "top": [
+        "Khoisan",
+        "Paleo-Siberian hunter-gatherers",
+        "Australian aboriginal hunter-gatherers",
+        "West African cereal farmers",
+        "Arctic marine mammal hunters",
+        "Savanna hunter-gatherers",
+        "Roman Empire",
+        "Amazon hunter-gatherers"
+      ]
+    },
+    {
+      "key": "100",
+      "year": 100,
+      "count": 84,
+      "bytes": 264254,
+      "top": [
+        "1",
+        "Khoisan",
+        "Paleo-Siberian hunter-gatherers",
+        "Australian aboriginal hunter-gatherers",
+        "West African cereal farmers",
+        "Arctic marine mammal hunters",
+        "Savanna hunter-gatherers",
+        "Roman Empire"
+      ]
+    },
+    {
+      "key": "200",
+      "year": 200,
+      "count": 69,
+      "bytes": 218513,
+      "top": [
+        "Khoisan",
+        "Paleo-Siberian hunter-gatherers",
+        "Australian aboriginal hunter-gatherers",
+        "West African cereal farmers",
+        "Arctic marine mammal hunters",
+        "Roman Empire",
+        "Savanna hunter-gatherers",
+        "Amazon hunter-gatherers"
+      ]
+    },
+    {
+      "key": "300",
+      "year": 300,
+      "count": 71,
+      "bytes": 229516,
+      "top": [
+        "Khoisan",
+        "Paleo-Siberian hunter-gatherers",
+        "Australian aboriginal hunter-gatherers",
+        "West African cereal farmers",
+        "Arctic marine mammal hunters",
+        "Savanna hunter-gatherers",
+        "Amazon hunter-gatherers",
+        "Subarctic forest hunter-gatherers"
+      ]
+    },
+    {
+      "key": "400",
+      "year": 400,
+      "count": 79,
+      "bytes": 223799,
+      "top": [
+        "Khoisan",
+        "Paleo-Siberian hunter-gatherers",
+        "Australian aboriginal hunter-gatherers",
+        "West African cereal farmers",
+        "Arctic marine mammal hunters",
+        "Savanna hunter-gatherers",
+        "Amazon hunter-gatherers",
+        "Subarctic forest hunter-gatherers"
+      ]
+    },
+    {
+      "key": "500",
+      "year": 500,
+      "count": 92,
+      "bytes": 325425,
+      "top": [
+        "Khoisan",
+        "Paleo-Siberian hunter-gatherers",
+        "Australian aboriginal hunter-gatherers",
+        "Arctic marine mammal hunters",
+        "West African cereal farmers",
+        "Savanna hunter-gatherers",
+        "Amazon hunter-gatherers",
+        "Subarctic forest hunter-gatherers"
+      ]
+    },
+    {
+      "key": "600",
+      "year": 600,
+      "count": 83,
+      "bytes": 289180,
+      "top": [
+        "Khoisan",
+        "Paleo-Siberian hunter-gatherers",
+        "Australian aboriginal hunter-gatherers",
+        "West African cereal farmers",
+        "Arctic marine mammal hunters",
+        "Savanna hunter-gatherers",
+        "Amazon hunter-gatherers",
+        "Subarctic forest hunter-gatherers"
+      ]
+    },
+    {
+      "key": "700",
+      "year": 700,
+      "count": 126,
+      "bytes": 299417,
+      "top": [
+        "Khoisan",
+        "Saharan Nomadic Tribes",
+        "Australian aboriginal hunter-gatherers",
+        "Paleo-Siberian hunter-gatherers",
+        "Arctic marine mammal hunters",
+        "West African cereal farmers",
+        "Savanna hunter-gatherers",
+        "Amazon hunter-gatherers"
+      ]
+    },
+    {
+      "key": "800",
+      "year": 800,
+      "count": 118,
+      "bytes": 342762,
+      "top": [
+        "Antarctica",
+        "Bantu peoples",
+        "Abbasid Caliphate",
+        "Australian aboriginal hunter-gatherers",
+        "Paleo-Siberian hunter-gatherers",
+        "West African cereal farmers",
+        "Tibetan Empire",
+        "Arctic marine mammal hunters"
+      ]
+    },
+    {
+      "key": "900",
+      "year": 900,
+      "count": 135,
+      "bytes": 394680,
+      "top": [
+        "Antarctica",
+        "Bantu peoples",
+        "Australian aboriginal hunter-gatherers",
+        "Paleo-Siberian hunter-gatherers",
+        "Abbasid Caliphate",
+        "Tibetan Empire",
+        "Oghuz Turks",
+        "Arctic marine mammal hunters"
+      ]
+    },
+    {
+      "key": "1000",
+      "year": 1000,
+      "count": 129,
+      "bytes": 366540,
+      "top": [
+        "Bantu peoples",
+        "Australian aboriginal hunter-gatherers",
+        "Paleo-Siberian hunter-gatherers",
+        "West African cereal farmers",
+        "Eastern North American hunter-gatherers",
+        "Arctic marine mammal hunters",
+        "Amazon hunter-gatherers",
+        "Song Empire"
+      ]
+    },
+    {
+      "key": "1100",
+      "year": 1100,
+      "count": 139,
+      "bytes": 351637,
+      "top": [
+        "Bantu peoples",
+        "Australian aboriginal hunter-gatherers",
+        "Cuman-Kipchak confederation",
+        "Paleo-Siberian hunter-gatherers",
+        "West African cereal farmers",
+        "Mongols",
+        "Arctic marine mammal hunters",
+        "Eastern North American hunter-gatherers"
+      ]
+    },
+    {
+      "key": "1200",
+      "year": 1200,
+      "count": 129,
+      "bytes": 369053,
+      "top": [
+        "Bantu peoples",
+        "Australian aboriginal hunter-gatherers",
+        "Paleo-Siberian hunter-gatherers",
+        "Tuareg Nomadic Tribes",
+        "Mongol Empire",
+        "West African cereal farmers",
+        "Kara Khitai Khaganate",
+        "Arctic marine mammal hunters"
+      ]
+    },
+    {
+      "key": "1279",
+      "year": 1279,
+      "count": 113,
+      "bytes": 349356,
+      "top": [
+        "Great Khanate",
+        "Siberians",
+        "Bantu peoples",
+        "Australian aboriginal hunter-gatherers",
+        "Khanate of the Golden Horde",
+        "Touareg",
+        "West African cereal farmers",
+        "Ilkhanate"
+      ]
+    },
+    {
+      "key": "1300",
+      "year": 1300,
+      "count": 113,
+      "bytes": 346013,
+      "top": [
+        "Great Khanate",
+        "Siberians",
+        "Bantu peoples",
+        "Australian aboriginal hunter-gatherers",
+        "Khanate of the Golden Horde",
+        "West African cereal farmers",
+        "Ilkhanate",
+        "Eastern North American hunter-gatherers"
+      ]
+    },
+    {
+      "key": "1400",
+      "year": 1400,
+      "count": 115,
+      "bytes": 385627,
+      "top": [
+        "Great Khanate",
+        "Siberians",
+        "Bantu peoples",
+        "Australian aboriginal hunter-gatherers",
+        "Timurid Empire",
+        "West African cereal farmers",
+        "White Horde",
+        "Eastern North American hunter-gatherers"
+      ]
+    },
+    {
+      "key": "1492",
+      "year": 1492,
+      "count": 1307,
+      "bytes": 1772640,
+      "top": [
+        "Chagatai Khanate",
+        "Bantu peoples",
+        "Siberians",
+        "Australian aboriginal hunter-gatherers",
+        "Ming Empire",
+        "West African cereal farmers",
+        "Dënéndeh",
+        "White Horde"
+      ]
+    },
+    {
+      "key": "1500",
+      "year": 1500,
+      "count": 139,
+      "bytes": 384272,
+      "top": [
+        "Chagatai Khanate",
+        "Bantu peoples",
+        "Australian aboriginal hunter-gatherers",
+        "Siberians",
+        "Ming Chinese Empire",
+        "West African cereal farmers",
+        "Kalmar Union",
+        "Amazon hunter-gatherers"
+      ]
+    },
+    {
+      "key": "1530",
+      "year": 1530,
+      "count": 270,
+      "bytes": 431205,
+      "top": [
+        "Australian aboriginal hunter-gatherers",
+        "Ming Chinese Empire",
+        "Ottoman Empire",
+        "Amazon hunter-gatherers",
+        "Savanna hunter-gatherers",
+        "Greenland",
+        "Quazaq Khanate",
+        "Tibet"
+      ]
+    },
+    {
+      "key": "1600",
+      "year": 1600,
+      "count": 638,
+      "bytes": 670163,
+      "top": [
+        "central Asian khanates",
+        "Ming Chinese Empire",
+        "Tsardom of Muscovy",
+        "Ottoman Empire",
+        "Amazon hunter-gatherers",
+        "Savanna hunter-gatherers",
+        "Greenland",
+        "Subarctic forest hunter-gatherers"
+      ]
+    },
+    {
+      "key": "1650",
+      "year": 1650,
+      "count": 592,
+      "bytes": 682356,
+      "top": [
+        "Tsardom of Muscovy",
+        "Ottoman Empire",
+        "Manchu Empire",
+        "central Asian khanates",
+        "Viceroyalty of Peru",
+        "Amazon hunter-gatherers",
+        "Viceroyalty of New Spain",
+        "Mughal Empire"
+      ]
+    },
+    {
+      "key": "1700",
+      "year": 1700,
+      "count": 584,
+      "bytes": 665484,
+      "top": [
+        "Tsardom of Muscovy",
+        "Manchu Empire",
+        "Ottoman Empire",
+        "central Asian khanates",
+        "Mughal Empire",
+        "Viceroyalty of Peru",
+        "Amazon hunter-gatherers",
+        "Viceroyalty of New Spain"
+      ]
+    },
+    {
+      "key": "1715",
+      "year": 1715,
+      "count": 600,
+      "bytes": 690140,
+      "top": [
+        "Tsardom of Muscovy",
+        "Manchu Empire",
+        "Amazon hunter-gatherers",
+        "Viceroyalty of Peru",
+        "Mughal Empire",
+        "Viceroyalty of New Spain",
+        "central Asian khanates",
+        "Ottoman Empire"
+      ]
+    },
+    {
+      "key": "1783",
+      "year": 1783,
+      "count": 550,
+      "bytes": 766397,
+      "top": [
+        "Russian Empire",
+        "Qing Empire",
+        "Viceroyalty of Brazil",
+        "Rupert's Land",
+        "Viceroyalty of New Spain",
+        "central Asian khanates",
+        "Luisiana",
+        "Viceroyalty of New Granada"
+      ]
+    },
+    {
+      "key": "1800",
+      "year": 1800,
+      "count": 546,
+      "bytes": 752860,
+      "top": [
+        "Russian Empire",
+        "Qing Empire",
+        "Viceroyalty of Brazil",
+        "Rupert's Land",
+        "Viceroyalty of New Spain",
+        "central Asian khanates",
+        "Luisiana",
+        "Viceroyalty of New Granada"
+      ]
+    },
+    {
+      "key": "1815",
+      "year": 1815,
+      "count": 313,
+      "bytes": 984780,
+      "top": [
+        "Russian Empire",
+        "Antarctica",
+        "Manchu Empire",
+        "Canada",
+        "Viceroyalty of Brazil",
+        "United States",
+        "Viceroyalty of New Spain",
+        "New South Wales"
+      ]
+    },
+    {
+      "key": "1878",
+      "year": 1878,
+      "count": 172,
+      "bytes": 546326,
+      "top": [
+        "Russian Empire",
+        "Manchu Empire",
+        "Canada",
+        "United States of America",
+        "Kingdom of Brazil",
+        "British Raj",
+        "Ottoman Empire",
+        "Western Australia (UK)"
+      ]
+    },
+    {
+      "key": "1880",
+      "year": 1880,
+      "count": 169,
+      "bytes": 544354,
+      "top": [
+        "Russian Empire",
+        "Manchu Empire",
+        "Canada",
+        "United States of America",
+        "Kingdom of Brazil",
+        "British Raj",
+        "Ottoman Empire",
+        "Argentina"
+      ]
+    },
+    {
+      "key": "1900",
+      "year": 1900,
+      "count": 165,
+      "bytes": 548488,
+      "top": [
+        "Russian Empire",
+        "Manchu Empire",
+        "Canada",
+        "United States of America",
+        "Kingdom of Brazil",
+        "British Raj",
+        "Ottoman Empire",
+        "Argentina"
+      ]
+    },
+    {
+      "key": "1914",
+      "year": 1914,
+      "count": 142,
+      "bytes": 560915,
+      "top": [
+        "Russian Empire",
+        "Canada",
+        "United States",
+        "Brazil",
+        "Australia",
+        "Manchu Empire",
+        "French West Africa",
+        "British Raj"
+      ]
+    },
+    {
+      "key": "1920",
+      "year": 1920,
+      "count": 163,
+      "bytes": 653034,
+      "top": [
+        "USSR",
+        "Canada",
+        "United States",
+        "Brazil",
+        "Australia",
+        "Chinese Warlords",
+        "British Raj",
+        "French West Africa"
+      ]
+    },
+    {
+      "key": "1930",
+      "year": 1930,
+      "count": 163,
+      "bytes": 605861,
+      "top": [
+        "White Russia",
+        "Canada",
+        "United States",
+        "Brazil",
+        "Australia",
+        "Chinese Warlords",
+        "British Raj",
+        "French West Africa"
+      ]
+    },
+    {
+      "key": "1938",
+      "year": 1938,
+      "count": 171,
+      "bytes": 630301,
+      "top": [
+        "USSR",
+        "Canada",
+        "United States",
+        "Brazil",
+        "Australia",
+        "Chinese warlords",
+        "British Raj",
+        "French West Africa"
+      ]
+    },
+    {
+      "key": "1945",
+      "year": 1945,
+      "count": 183,
+      "bytes": 608517,
+      "top": [
+        "USSR",
+        "Antarctica",
+        "Canada",
+        "United States",
+        "Brazil",
+        "Australia",
+        "China",
+        "India"
+      ]
+    },
+    {
+      "key": "1960",
+      "year": 1960,
+      "count": 157,
+      "bytes": 581251,
+      "top": [
+        "USSR",
+        "Antarctica",
+        "Canada",
+        "United States",
+        "Brazil",
+        "China",
+        "Australia",
+        "India"
+      ]
+    },
+    {
+      "key": "1994",
+      "year": 1994,
+      "count": 193,
+      "bytes": 696547,
+      "top": [
+        "Russia",
+        "Canada",
+        "United States",
+        "China",
+        "Brazil",
+        "Australia",
+        "India",
+        "Kazakhstan"
+      ]
+    },
+    {
+      "key": "2000",
+      "year": 2000,
+      "count": 193,
+      "bytes": 701579,
+      "top": [
+        "Russia",
+        "Canada",
+        "United States",
+        "China",
+        "Brazil",
+        "Australia",
+        "India",
+        "Kazakhstan"
+      ]
+    },
+    {
+      "key": "2010",
+      "year": 2010,
+      "count": 193,
+      "bytes": 701570,
+      "top": [
+        "Russia",
+        "Canada",
+        "United States",
+        "China",
+        "Brazil",
+        "Australia",
+        "India",
+        "Kazakhstan"
+      ]
+    },
+    {
+      "key": "2025",
+      "year": 2025,
+      "count": 176,
+      "bytes": 206196,
+      "top": [
+        "南极洲",
+        "俄罗斯",
+        "加拿大",
+        "美国",
+        "中国",
+        "巴西",
+        "澳大利亚",
+        "印度"
+      ],
+      "modern": true
+    }
+  ],
+  "sources": [
+    "https://github.com/aourednik/historical-basemaps (CC-BY-SA 4.0)",
+    "https://github.com/nvkelso/natural-earth-vector (public domain)"
+  ],
+  "totalBytes": 23670890
+}

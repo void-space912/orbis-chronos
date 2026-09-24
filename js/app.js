@@ -1,0 +1,916 @@
+/**
+ * 寰宇纪年 —— 三维历史版图地球主程序。
+ * 渲染：globe.gl（three.js）；数据：historical-basemaps + Natural Earth。
+ */
+import { ERAS, formatYear, formatYearShort, isMajorEra } from './eras.js';
+import { loadEra, prefetch, isCached } from './data.js';
+import { createEffects } from './effects.js';
+import { labelOf, colorOf } from './i18n.js';
+import { loadEvents, eventsForEra, formatEventYear, EVENT_TYPES } from './events.js';
+
+const $ = (id) => document.getElementById(id);
+const BASE_ALTITUDE = 0.008;
+const HOVER_ALTITUDE = 0.05;
+const MAX_POLYGONS = 300;
+const MAX_POLYGONS_ALL = 500;
+
+const TEXTURE = {
+  day: 'vendor/img/earth-blue-marble.jpg',
+  bump: 'vendor/img/earth-topology.jpg',
+  water: 'vendor/img/earth-water.jpg',
+  sky: 'vendor/img/night-sky.jpg',
+};
+
+const state = {
+  index: Math.max(0, ERAS.findIndex((e) => e.key === '1900')),
+  features: [],
+  tops: [],
+  eraEvents: [],
+  eventIndex: new Map(),
+  hoverId: null,
+  selectedId: null,
+  playing: false,
+  playTimer: 0,
+  speed: 1200,
+  maxPolitiesAll: false,
+  spin: true,
+  timing: {},
+  idleHandles: [],
+  // 脉冲光环默认关闭：逐帧/逐年代闪烁在播放时很干扰，需要时可在控制台打开
+  layers: { fill: true, stroke: true, labels: true, events: true, rings: false, arcs: true, graticule: true },
+  nameIndex: null,
+  booted: false,
+  era: null,
+};
+
+let globe = null;
+let fx = null;
+let requestedIndex = null;
+let switchRunning = false;
+
+/* ------------------------------------------------------------------ 工具 */
+
+function debounce(fn, ms) {
+  let t = 0;
+  return (...args) => {
+    clearTimeout(t);
+    t = setTimeout(() => fn(...args), ms);
+  };
+}
+
+function currentEra() {
+  return ERAS[state.index];
+}
+
+/* --------------------------------------------------------------- 启动流程 */
+
+function boot() {
+  const step = (text, pct) => {
+    $('bootStep').textContent = text;
+    $('bootBar').style.width = `${Math.max(4, Math.min(100, pct))}%`;
+  };
+
+  if (typeof window.Globe !== 'function') {
+    step('三维引擎未能载入，请确认 vendor/globe.gl.min.js 存在', 100);
+    $('bootStep').style.color = '#ff8a8a';
+    return;
+  }
+
+  const t0 = performance.now();
+  state.timing = { start: t0 };
+
+  step('正在构建三维地球…', 18);
+  let globeReady;
+  try {
+    globeReady = createGlobe();
+  } catch (err) {
+    step(`三维初始化失败：${err.message}`, 100);
+    $('bootStep').style.color = '#ff8a8a';
+    return;
+  }
+
+  step('正在读取历史版图数据…', 45);
+
+  const hashKey = (location.hash.match(/y=([\w]+)/) || [])[1];
+  const hashIdx = hashKey ? ERAS.findIndex((e) => e.key === hashKey) : -1;
+  if (hashIdx >= 0) state.index = hashIdx;
+
+  let settled = 0;
+  const mark = (text) => {
+    settled += 1;
+    step(text, 22 + (settled / 3) * 66);
+  };
+
+  const dataReady = loadEra(currentEra())
+    .then((data) => {
+      applyEraData(data, currentEra());
+      onEraChanged({ silent: true });
+      state.timing.eraKey = currentEra().key;
+      state.timing.dataMs = Math.round(performance.now() - t0);
+      mark('版图数据就绪，正在准备贴图…');
+    })
+    .catch((err) => {
+      step(`数据载入失败：${err.message}`, 100);
+      $('bootStep').style.color = '#ff8a8a';
+      throw err;
+    });
+
+  // 首屏只等「地球贴图 + 当前年代数据」，其余贴图在露出画面后再补
+  Promise.all([dataReady, globeReady])
+    .then(() => {
+      state.timing.firstPaintMs = Math.round(performance.now() - t0);
+      revealScene();
+    })
+    .catch(() => { /* 错误信息已在上面展示 */ });
+}
+
+function revealScene() {
+  state.booted = true;
+  $('boot').classList.add('done');
+  fx && fx.burst('cyan', 1.2);
+  // 镜头推进：从远处拉近到观测位
+  globe.pointOfView({ lat: 28, lng: 96, altitude: 2.05 }, 1500);
+  // 关键帧之后再补背景星空、地形凹凸、海面高光，避免和首屏抢带宽
+  idle(() => enhanceTextures(), 600);
+  prefetchNeighbours();
+  loadNameIndex();
+  loadEventIndex();
+}
+
+/** 首屏之后载入事件表（16 KB）：载入后补上标记与面板 */
+function loadEventIndex() {
+  loadEvents()
+    .then(() => {
+      buildTicks();
+      state.eraEvents = eventsForEra(state.index);
+      state.eventIndex = new Map(state.eraEvents.map((e) => [e.id, e]));
+      renderMapLayers();
+      renderEventsPanel();
+    })
+    .catch((err) => {
+      console.warn('[events] 事件数据不可用：', err.message);
+      state.eraEvents = [];
+      renderEventsPanel();
+    });
+}
+
+/** 首屏之后追加的贴图与特效（不阻塞地球出现） */
+function enhanceTextures() {
+  try {
+    if (!globe.bumpImageUrl()) globe.bumpImageUrl(TEXTURE.bump);
+  } catch { /* 忽略 */ }
+  try {
+    if (!globe.backgroundImageUrl()) globe.backgroundImageUrl(TEXTURE.sky);
+  } catch { /* 忽略 */ }
+  try {
+    const mat = globe.globeMaterial();
+    const map = mat.map;
+    const Tex = map && map.constructor;
+    if (Tex && !window.THREE && !mat.specularMap) {
+      const img = new Image();
+      img.src = TEXTURE.water;
+      img.onload = () => {
+        const tex = new Tex(img);
+        tex.wrapS = map.wrapS;
+        tex.wrapT = map.wrapT;
+        tex.needsUpdate = true;
+        mat.specularMap = tex;
+        mat.needsUpdate = true;
+      };
+    }
+  } catch { /* 忽略 */ }
+}
+
+function idle(fn, timeout = 1200) {
+  if (typeof window.requestIdleCallback === 'function') {
+    state.idleHandles.push(window.requestIdleCallback(fn, { timeout }));
+  } else {
+    state.idleHandles.push(setTimeout(fn, Math.min(timeout, 400)));
+  }
+}
+
+/* 多边形样式 accessor：只定义一次，内部按当前状态求值（避免每次换年代重新 setter） */
+
+function polygonCap(f) {
+  if (state.hoverId === f.id) return f.colorHover;
+  return state.layers.fill ? f.color : 'rgba(12, 30, 48, 0.08)';
+}
+
+function polygonStroke(f) {
+  if (!state.layers.stroke) return null;
+  return state.hoverId === f.id ? '#ffffff' : f.stroke;
+}
+
+function polygonHeight(f) {
+  return state.hoverId === f.id ? HOVER_ALTITUDE : BASE_ALTITUDE;
+}
+
+function createGlobe() {
+  let resolveGlobeReady;
+  const globeReady = new Promise((resolve) => { resolveGlobeReady = resolve; });
+  // 兜底：贴图异常时也不能一直卡在载入遮罩里
+  const readyFallback = setTimeout(resolveGlobeReady, 6000);
+
+  globe = new window.Globe($('globeViz'), { animateIn: false, waitForGlobeReady: true })
+    .globeImageUrl(TEXTURE.day)
+    .showAtmosphere(true)
+    .atmosphereColor('#5fd8ff')
+    .atmosphereAltitude(0.24)
+    .polygonsTransitionDuration(1000)
+    .polygonAltitude(polygonHeight)
+    .polygonCapCurvatureResolution(6)
+    .polygonSideColor((f) => f.side)
+    .polygonStrokeColor(polygonStroke)
+    .polygonCapColor(polygonCap)
+    .onPolygonHover(handleHover)
+    .onPolygonClick(handleClick)
+    .htmlElementsData([])
+    .htmlLat((d) => d.lat)
+    .htmlLng((d) => d.lng)
+    .htmlAltitude(0.012)
+    .htmlElement(labelNode)
+    .htmlElementVisibilityModifier((el, isVisible) => el.classList.toggle('is-behind', !isVisible))
+    .ringsData([])
+    .ringColor(() => (t) => `rgba(120, 235, 255, ${Math.max(0, 0.55 * (1 - t))})`)
+    .ringMaxRadius((d) => 1.6 + Math.sqrt(d.rel) * 4)
+    .ringPropagationSpeed((d) => 0.9 + Math.sqrt(d.rel))
+    .ringRepeatPeriod((d) => 1400 + 900 * Math.random())
+    .ringAltitude(0.012)
+    .ringResolution(48)
+    .arcsData([])
+    .arcsTransitionDuration(700)
+    .arcDashLength(0.32)
+    .arcDashGap(0.22)
+    .arcDashAnimateTime(2600)
+    .arcStroke(0.22)
+    .arcAltitudeAutoScale(0.42)
+    .arcColor(() => ['rgba(120, 235, 255, 0.05)', 'rgba(255, 195, 107, 0.75)'])
+    .pathsData([])
+    .pathPointLat((p) => p[0])
+    .pathPointLng((p) => p[1])
+    .pathColor(() => 'rgba(96, 214, 255, 0.16)')
+    .pathStroke(0.13)
+    .pathPointAlt(0.002)
+    .pathResolution(3)
+    .pathTransitionDuration(0);
+
+  // 光照：让夜半球也能看清版图
+  globe.scene().children.forEach((obj) => {
+    if (obj.type === 'AmbientLight') obj.intensity = Math.max(obj.intensity, 1.15);
+    if (obj.type === 'DirectionalLight') obj.intensity = Math.max(obj.intensity, 1.25);
+    if (obj.type === 'HemisphereLight') obj.intensity = Math.max(obj.intensity, 0.8);
+  });
+
+  // 球体材质：加入自发光与环境反光，贴近“星球仪表”观感
+  try {
+    const mat = globe.globeMaterial();
+    if (mat.emissive) mat.emissive.set('#0a2942');
+    if ('emissiveIntensity' in mat) mat.emissiveIntensity = 0.22;
+    if (mat.specular) mat.specular.set('#2b6f9c');
+    if ('shininess' in mat) mat.shininess = 14;
+  } catch { /* 材质微调失败不影响主流程 */ }
+
+  const controls = globe.controls();
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+  controls.rotateSpeed = 0.55;
+  controls.zoomSpeed = 0.75;
+  controls.autoRotate = state.spin;
+  controls.autoRotateSpeed = 0.3;
+
+  // 起始机位放远一点，贴图就绪后由 revealScene() 推近
+  globe.pointOfView({ lat: 28, lng: 96, altitude: 3.4 }, 0);
+
+  globe.pathsData(buildGraticule());
+
+  fx = createEffects($('fx'), { getOrbit: globeSilhouette });
+
+  // 调试句柄：便于在浏览器控制台或自动化测试中检查运行时状态
+  window.__orbis = { globe, state, requestEra, ERAS };
+
+  window.addEventListener('resize', debounce(() => {
+    globe.width($('stage').clientWidth).height($('stage').clientHeight);
+  }, 160));
+
+  globe.onGlobeReady(() => {
+    clearTimeout(readyFallback);
+    state.timing.globeReadyMs = Math.round(performance.now() - (state.timing.start || 0));
+    resolveGlobeReady();
+  });
+
+  return globeReady;
+}
+
+function globeSilhouette() {
+  if (!globe) return null;
+  const cam = globe.camera();
+  const stage = $('stage');
+  const h = stage.clientHeight;
+  const w = stage.clientWidth;
+  const dist = cam.position.length();
+  const R = 100;
+  if (!(dist > R * 1.001)) return null;
+  const ang = Math.asin(Math.min(0.9999, R / dist));
+  const r = (Math.tan(ang) * (h / 2)) / Math.tan(((cam.fov * Math.PI) / 180) / 2);
+  return { x: w / 2, y: h / 2, r };
+}
+
+/* -------------------------------------------------------------- 经纬网数据 */
+
+function buildGraticule() {
+  const paths = [];
+  for (let lat = -60; lat <= 60; lat += 30) {
+    const line = [];
+    for (let lng = -180; lng <= 180; lng += 4) line.push([lat, lng]);
+    paths.push(line);
+  }
+  for (let lng = -180; lng < 180; lng += 30) {
+    const line = [];
+    for (let lat = -88; lat <= 88; lat += 3) line.push([lat, lng]);
+    paths.push(line);
+  }
+  return paths;
+}
+
+/* ------------------------------------------------------------------ 渲染 */
+
+function visibleFeatures(data) {
+  const cap = state.maxPolitiesAll ? MAX_POLYGONS_ALL : MAX_POLYGONS;
+  return data.features.slice(0, cap);
+}
+
+function applyEraData(data, era) {
+  const feats = visibleFeatures(data);
+  state.features = feats;
+  state.era = era;
+  state.hoverId = null;
+  state.selectedId = null;
+
+  // 只更新数据：颜色/高度的 accessor 在 createGlobe 里设一次即可，
+  // 每帧重复 setter 会让 globe.gl 重新消化一遍全部多边形（播放时的主要卡顿来源）
+  globe.polygonsData(feats);
+
+  const labelThreshold = era.modern ? 0.04 : 0.1;
+  state.tops = feats.filter((f) => f.rel >= labelThreshold).slice(0, 8);
+  state.eraEvents = eventsForEra(state.index);
+  state.eventIndex = new Map(state.eraEvents.map((e) => [e.id, e]));
+  renderMapLayers();
+  renderEventsPanel();
+
+  updateHud(data, era);
+  updateLegend(feats);
+  updateDetailForSelection();
+}
+
+/** 球面 DOM 图层：政权名称标签 + 历史大事标记 + 脉冲光环 + 能量弧 */
+function renderMapLayers() {
+  const markers = [];
+  if (state.layers.labels) markers.push(...state.tops);
+  if (state.layers.events) markers.push(...state.eraEvents);
+  globe.htmlElementsData(markers);
+  globe.ringsData(state.layers.rings ? state.tops.slice(0, 5) : []);
+  globe.arcsData(state.layers.arcs ? buildArcs(state.tops) : []);
+}
+
+/** 球面标签：政权名用 DOM 标签，历史大事用事件标记（同一图层承载） */
+const labelNodes = new Map();
+const eventNodes = new Map();
+
+function labelNode(d) {
+  if (d.kind === 'event') return eventNode(d);
+  let el = labelNodes.get(d.id);
+  if (!el) {
+    el = document.createElement('div');
+    el.className = 'g-label';
+    el.innerHTML = '<span class="g-inner"><span class="g-dot"></span><span class="g-txt"></span></span>';
+    labelNodes.set(d.id, el);
+  }
+  el.querySelector('.g-txt').textContent = d.nameZh;
+  el.style.setProperty('--ls', String(11 + Math.round(Math.min(6, Math.sqrt(d.rel) * 9))));
+  el.style.color = d.stroke;
+  return el;
+}
+
+function eventNode(d) {
+  let el = eventNodes.get(d.id);
+  if (!el) {
+    el = document.createElement('div');
+    el.className = `g-event g-event-${d.type}`;
+    el.innerHTML = '<span class="g-event-inner"><span class="g-event-marker"></span>'
+      + '<span class="g-event-text"><b class="g-event-year"></b><i class="g-event-name"></i></span></span>';
+    eventNodes.set(d.id, el);
+  }
+  el.querySelector('.g-event-year').textContent = formatEventYear(d.year);
+  el.querySelector('.g-event-name').textContent = d.name;
+  el.style.setProperty('--ev', d.color);
+  return el;
+}
+
+function buildArcs(tops) {
+  const arcs = [];
+  const list = tops.slice(0, 6);
+  for (let i = 0; i < list.length; i += 1) {
+    const a = list[i];
+    const b = list[(i + 1) % list.length];
+    if (a.id === b.id) continue;
+    arcs.push({
+      startLat: a.lat,
+      startLng: a.lng,
+      endLat: b.lat,
+      endLng: b.lng,
+      rel: (a.rel + b.rel) / 2,
+    });
+  }
+  return arcs;
+}
+
+function updateHud(data, era) {
+  const shown = state.features.length;
+  const total = data.features.length;
+  const biggest = data.features.slice(0, 3).map((f) => f.nameZh).join(' · ');
+  $('tlStats').textContent = `${formatYearShort(era.year)} · ${total} 个政权／文化区域${shown < total ? ` · 显示前 ${shown} 大` : ''} · 面积最大：${biggest}`;
+  $('yearValue').textContent = formatYearShort(era.year);
+  $('yearLabel').textContent = era.label;
+  $('yearMeta').textContent = `${era.note || ''}${shown < total ? ` · 按面积显示前 ${shown} 个` : ''}`;
+  updateTicks();
+  updateSliderGlow();
+}
+
+function updateLegend(feats) {
+  const counts = new Map();
+  for (const f of feats) counts.set(f.cls, (counts.get(f.cls) || 0) + 1);
+  const total = feats.length || 1;
+  const rows = [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([cls, n]) => {
+      const c = colorOf(cls);
+      const pct = ((n / total) * 100).toFixed(0);
+      return `<div class="legend-item" title="${labelOf(cls)} · ${n} 个 · 占 ${pct}%"><span class="legend-swatch" style="background:${c};color:${c}"></span>${labelOf(cls)} · ${n}</div>`;
+    });
+  $('legend').innerHTML = rows.join('') || '<div class="legend-item">暂无数据</div>';
+}
+
+/* ------------------------------------------------------- 历史大事面板 */
+
+function renderEventsPanel() {
+  const host = $('eventsPanel');
+  if (!host) return;
+  const list = state.eraEvents;
+  const era = currentEra();
+  if (!list.length) {
+    host.hidden = true;
+    return;
+  }
+  host.hidden = false;
+  $('eventsEra').textContent = era.label;
+  $('eventsCount').textContent = `收录 ${list.length} 条`;
+  const rows = list.map((e) => {
+    const active = state.selectedEventId === e.id ? ' active' : '';
+    return `<button type="button" class="event-row${active}" data-event="${e.id}" style="--ev:${e.color}">`
+      + `<span class="event-year">${formatEventYear(e.year)}</span>`
+      + `<span class="event-body"><span class="event-name">${escapeHtml(e.name)}</span>`
+      + `<span class="event-meta">${escapeHtml(e.typeLabel)}${e.nameEn ? ` · ${escapeHtml(e.nameEn)}` : ''}</span></span>`
+      + '</button>';
+  });
+  $('eventsList').innerHTML = rows.join('');
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function focusEvent(id) {
+  const e = state.eventIndex.get(id);
+  if (!e) return;
+  state.selectedEventId = id;
+  globe.pointOfView({ lat: e.lat, lng: e.lng, altitude: 1.5 }, 1100);
+  const node = eventNodes.get(e.id);
+  if (node) {
+    node.classList.remove('ping');
+    void node.offsetWidth;
+    node.classList.add('ping');
+  }
+  renderEventsPanel();
+}
+
+/* --------------------------------------------------------------- 时间轴 */
+
+/** 刻度只建一次，之后仅切换 active/major 状态（避免每次换年代重建 54 个节点） */
+function buildTicks() {
+  const n = ERAS.length;
+  const frag = document.createDocumentFragment();
+  for (let i = 0; i < n; i += 1) {
+    const el = document.createElement('i');
+    el.style.left = `${(i / (n - 1)) * 100}%`;
+    el.title = ERAS[i].label;
+    el.dataset.era = ERAS[i].key;
+    if (isMajorEra(ERAS[i])) el.classList.add('major');
+    frag.appendChild(el);
+  }
+  const host = $('ticks');
+  host.innerHTML = '';
+  host.appendChild(frag);
+  state.tickNodes = [...host.children];
+  markEventTicks();
+}
+
+/** 有大事记录（尤其战争）的年代，刻度上加一点标记 */
+function markEventTicks() {
+  if (!state.tickNodes) return;
+  for (let i = 0; i < state.tickNodes.length; i += 1) {
+    const count = eventsForEra(i).length;
+    const el = state.tickNodes[i];
+    el.classList.toggle('has-event', count > 0);
+    el.classList.toggle('has-war', eventsForEra(i).some((e) => e.type === 'war'));
+    if (count) el.title = `${ERAS[i].label} · 收录 ${count} 条大事`;
+  }
+}
+
+function updateTicks() {
+  if (!state.tickNodes) return;
+  for (let i = 0; i < state.tickNodes.length; i += 1) {
+    state.tickNodes[i].classList.toggle('active', i === state.index);
+  }
+}
+
+function updateSliderGlow() {
+  const n = ERAS.length;
+  $('sliderGlow').style.width = `${(state.index / (n - 1)) * 100}%`;
+}
+
+let scrambleTimer = 0;
+
+function flashYearChip() {
+  clearInterval(scrambleTimer);
+  $('yearValue').textContent = formatYearShort(currentEra().year);
+  const hud = document.querySelector('.hud-year');
+  hud.classList.remove('flash');
+  void hud.offsetWidth;
+  hud.classList.add('flash');
+}
+
+function scrambleYear() {
+  const era = currentEra();
+  const target = formatYearShort(era.year);
+  const prefix = era.year < 0 ? '前' : '';
+  let frames = 0;
+  clearInterval(scrambleTimer);
+  scrambleTimer = setInterval(() => {
+    frames += 1;
+    if (frames > 6) {
+      clearInterval(scrambleTimer);
+      $('yearValue').textContent = target;
+      return;
+    }
+    const digits = String(Math.abs(era.year)).replace(/\d/g, () => String(Math.floor(Math.random() * 10)));
+    $('yearValue').textContent = prefix + digits;
+  }, 46);
+}
+
+/* -------------------------------------------------------- 年代切换主流程 */
+
+function requestEra(index, { silent = false } = {}) {
+  const clamped = Math.max(0, Math.min(ERAS.length - 1, index));
+  $('timeline').value = String(clamped);
+  requestedIndex = clamped;
+  state.pendingIndex = clamped;
+  if (!silent && !state.playing) scrambleYear();
+  if (switchRunning) return;
+  switchRunning = true;
+  (async () => {
+    while (requestedIndex !== null) {
+      const target = requestedIndex;
+      requestedIndex = null;
+      const era = ERAS[target];
+      const cached = isCached(era);
+      if (!cached) $('yearMeta').textContent = `正在载入 ${era.label} 的版图数据…`;
+      try {
+        const stepT0 = performance.now();
+        const data = await loadEra(era);
+        if (requestedIndex !== null) continue;
+        state.index = target;
+        applyEraData(data, era);
+        onEraChanged();
+        state.timing.lastStepMs = Math.round(performance.now() - stepT0);
+        state.timing.lastStepCached = cached;
+      } catch (err) {
+        $('yearMeta').textContent = `载入失败：${err.message}`;
+      }
+    }
+    switchRunning = false;
+  })();
+}
+
+function onEraChanged({ silent = false } = {}) {
+  const era = currentEra();
+  // 播放时不做闪光特效：连续闪烁会明显干扰观看
+  if (!silent && !state.playing) {
+    flashYearChip();
+    fx && fx.burst(era.modern ? 'amber' : 'cyan', era.modern ? 1.2 : 1);
+  }
+  history.replaceState(null, '', `#y=${era.key}`);
+  prefetchNeighbours();
+  updatePlayLabel();
+}
+
+function prefetchNeighbours() {
+  const idx = state.index;
+  if (state.playing) {
+    // 播放是顺序推进的：提前把后面几个年代取回来，
+    // 否则每一步都要现场下载 + 解析几百 KB 的版图数据，就会一顿一顿
+    idle(() => {
+      prefetch(ERAS[idx + 1]);
+      prefetch(ERAS[idx + 2]);
+    }, 300);
+    return;
+  }
+  // 先拿相邻一个年代；再远一点的留到浏览器空闲时，避免和首屏抢带宽
+  idle(() => {
+    prefetch(ERAS[idx + 1]);
+    prefetch(ERAS[idx - 1]);
+  }, 800);
+  idle(() => {
+    prefetch(ERAS[idx + 2]);
+    prefetch(ERAS[idx - 2]);
+  }, 3000);
+}
+
+function step(delta) {
+  stopPlay();
+  const base = Number.isInteger(state.pendingIndex) ? state.pendingIndex : state.index;
+  const next = base + delta;
+  if (next < 0 || next >= ERAS.length) return;
+  requestEra(next);
+}
+
+/* ------------------------------------------------------------- 播放控制 */
+
+function updatePlayLabel() {
+  const btn = $('btnPlay');
+  btn.classList.toggle('playing', state.playing);
+  $('btnPlayLabel').textContent = state.playing ? '暂停' : '播放';
+  btn.setAttribute('aria-pressed', String(state.playing));
+}
+
+function startPlay() {
+  if (state.playing) return;
+  state.playing = true;
+  state.playStartIndex = state.index;
+  updatePlayLabel();
+  const tick = () => {
+    if (!state.playing) return;
+    const base = Number.isInteger(state.pendingIndex) ? state.pendingIndex : state.index;
+    const next = base + 1;
+    if (next >= ERAS.length) {
+      stopPlay();
+      return;
+    }
+    requestEra(next);
+    // 上一步的多边形还在过渡时不要叠上下一步，避免连续重建几何造成卡顿
+    const wait = Math.max(state.speed, 900);
+    state.playTimer = setTimeout(tick, wait);
+  };
+  state.playTimer = setTimeout(tick, state.speed);
+}
+
+function stopPlay() {
+  state.playing = false;
+  clearTimeout(state.playTimer);
+  updatePlayLabel();
+}
+
+/* ------------------------------------------------------------------ 交互 */
+
+function handleHover(feature) {
+  const id = feature ? feature.id : null;
+  if (id === state.hoverId) {
+    if (!id) hideTooltip();
+    return;
+  }
+  state.hoverId = id;
+  // 高亮需要重新求值一次多边形样式；播放中若在快速划过多个国家，
+  // 这里用一次合并刷新（拖到同一帧）避免连续多次重建几何
+  schedulePolygonRefresh();
+  if (!id) {
+    hideTooltip();
+    return;
+  }
+  showTooltip(feature);
+}
+
+let polygonRefreshHandle = 0;
+
+function schedulePolygonRefresh() {
+  if (polygonRefreshHandle) return;
+  polygonRefreshHandle = requestAnimationFrame(() => {
+    polygonRefreshHandle = 0;
+    globe.polygonAltitude(polygonHeight);
+    globe.polygonCapColor(polygonCap);
+    globe.polygonStrokeColor(polygonStroke);
+  });
+}
+
+function handleClick(feature) {
+  if (!feature) return;
+  state.selectedId = feature.id;
+  updateDetailForSelection();
+  globe.pointOfView({ lat: feature.lat, lng: feature.lng, altitude: 1.5 }, 1100);
+  const p = pointerScreen;
+  fx && fx.ping(p.x, p.y);
+}
+
+function updateDetailForSelection() {
+  const panel = $('detailPanel');
+  const f = state.features.find((x) => x.id === state.selectedId);
+  if (!f) {
+    panel.hidden = true;
+    return;
+  }
+  panel.hidden = false;
+  $('detailKicker').textContent = f.cls === 'hunting' || f.cls === 'farming' || f.cls === 'culture' ? '文化区域档案' : '政权档案';
+  $('detailName').textContent = f.nameZh;
+  $('detailSub').textContent = f.translated || f.nameEn === f.nameZh ? f.nameEn : '';
+  $('detailType').textContent = f.typeZh;
+  $('detailShare').textContent = `${(f.share * 100).toFixed(2)}%`;
+  $('detailShare').title = '占本年代已绘版图面积的比例（估算值）';
+  $('detailSubject').textContent = f.subject && f.subject !== f.name ? f.subject : '—';
+  const span = spanOf(f.name);
+  $('detailSpan').textContent = span;
+  const link = $('detailLink');
+  if (f.wiki) {
+    link.href = f.wiki;
+    link.hidden = false;
+  } else {
+    link.hidden = true;
+  }
+}
+
+function spanOf(name) {
+  const idx = state.nameIndex;
+  if (!idx || !idx[name]) return '当前快照';
+  const years = idx[name];
+  const first = years[0];
+  const last = years[years.length - 1];
+  const label = (y) => (y < 0 ? `前${Math.abs(y)}` : `${y}`);
+  if (years.length === 1) return `${label(first)} 年快照`;
+  return `${label(first)} — ${label(last)} 年 · ${years.length} 个快照`;
+}
+
+const pointerScreen = { x: 0, y: 0 };
+
+function showTooltip(f) {
+  const tt = $('tooltip');
+  tt.hidden = false;
+  tt.querySelector('.tt-name').textContent = f.nameZh;
+  const extra = f.nameEn && f.nameEn !== f.nameZh ? ` · ${f.nameEn}` : '';
+  tt.querySelector('.tt-meta').textContent = `${f.typeZh} · 占比 ${(f.share * 100).toFixed(2)}%${extra}`;
+  positionTooltip();
+}
+
+function hideTooltip() {
+  $('tooltip').hidden = true;
+}
+
+function positionTooltip() {
+  const tt = $('tooltip');
+  if (tt.hidden) return;
+  const pad = 16;
+  const w = tt.offsetWidth;
+  const h = tt.offsetHeight;
+  let x = pointerScreen.x + pad;
+  let y = pointerScreen.y + pad;
+  if (x + w > window.innerWidth - 8) x = pointerScreen.x - w - pad;
+  if (y + h > window.innerHeight - 8) y = pointerScreen.y - h - pad;
+  tt.style.left = `${Math.max(8, x)}px`;
+  tt.style.top = `${Math.max(8, y)}px`;
+}
+
+/* ------------------------------------------------------------ 名称索引 */
+
+async function loadNameIndex() {
+  try {
+    const res = await fetch('data/name-index.json');
+    if (!res.ok) return;
+    state.nameIndex = await res.json();
+    updateDetailForSelection();
+  } catch { /* 索引缺失仅影响“存在年代”展示 */ }
+}
+
+/* ------------------------------------------------------------ 界面绑定 */
+
+function buildSwitches() {
+  const defs = [
+    ['fill', '版图填充', () => globe.polygonCapColor(polygonCap)],
+    ['stroke', '边界描边', () => globe.polygonStrokeColor(polygonStroke)],
+    ['labels', '政权名称', () => renderMapLayers()],
+    ['events', '历史大事', () => renderMapLayers()],
+    ['rings', '脉冲光环（闪烁）', () => renderMapLayers()],
+    ['arcs', '能量弧（装饰）', () => renderMapLayers()],
+    ['graticule', '经纬网', () => globe.pathsData(state.layers.graticule ? buildGraticule() : [])],
+  ];
+  $('layerSwitches').innerHTML = defs
+    .map(([key, label]) => `<label class="switch"><span>${label}</span><input type="checkbox" data-layer="${key}" ${state.layers[key] ? 'checked' : ''}><span class="track"></span></label>`)
+    .join('') + `<label class="switch"><span>更多政权（≤${MAX_POLYGONS_ALL}）</span><input type="checkbox" data-layer="all"><span class="track"></span></label>`;
+
+  $('layerSwitches').addEventListener('change', (e) => {
+    const input = e.target.closest('input[data-layer]');
+    if (!input) return;
+    const key = input.dataset.layer;
+    if (key === 'all') {
+      state.maxPolitiesAll = input.checked;
+      loadEra(currentEra()).then((data) => applyEraData(data, currentEra()));
+      return;
+    }
+    state.layers[key] = input.checked;
+    const def = defs.find(([k]) => k === key);
+    def && def[2]();
+  });
+}
+
+function bindUi() {
+  buildSwitches();
+
+  $('timeline').addEventListener('input', (e) => {
+    stopPlay();
+    requestEra(Number(e.target.value));
+  });
+
+  $('btnPrev').addEventListener('click', () => step(-1));
+  $('btnNext').addEventListener('click', () => step(1));
+  $('btnPlay').addEventListener('click', () => (state.playing ? stopPlay() : startPlay()));
+  $('speed').addEventListener('change', (e) => { state.speed = Number(e.target.value); });
+  $('btnSpin').addEventListener('click', (e) => {
+    state.spin = !state.spin;
+    globe.controls().autoRotate = state.spin;
+    e.currentTarget.setAttribute('aria-pressed', String(state.spin));
+  });
+  $('btnReset').addEventListener('click', () => {
+    globe.pointOfView({ lat: 28, lng: 96, altitude: 2.05 }, 1200);
+  });
+  $('btnFull').addEventListener('click', () => {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen().catch(() => {});
+  });
+  $('detailClose').addEventListener('click', () => {
+    state.selectedId = null;
+    updateDetailForSelection();
+  });
+  $('consoleToggle').addEventListener('click', (e) => {
+    const panel = $('consolePanel');
+    const collapsed = panel.classList.toggle('collapsed');
+    e.currentTarget.setAttribute('aria-expanded', String(!collapsed));
+  });
+
+  const stage = $('stage');
+  stage.addEventListener('pointermove', (e) => {
+    pointerScreen.x = e.clientX;
+    pointerScreen.y = e.clientY;
+    positionTooltip();
+  });
+  stage.addEventListener('pointerleave', hideTooltip);
+
+  // 大事记列表：点击定位到该事件
+  const eventsList = $('eventsList');
+  if (eventsList) {
+    eventsList.addEventListener('click', (e) => {
+      const row = e.target.closest('.event-row');
+      if (row) focusEvent(row.dataset.event);
+    });
+  }
+  const eventsToggle = $('eventsToggle');
+  if (eventsToggle) {
+    eventsToggle.addEventListener('click', (e) => {
+      const panel = $('eventsPanel');
+      const collapsed = panel.classList.toggle('collapsed');
+      e.currentTarget.setAttribute('aria-expanded', String(!collapsed));
+    });
+  }
+
+  window.addEventListener('keydown', (e) => {
+    if (e.target && /input|select|textarea/i.test(e.target.tagName)) return;
+    if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); step(1); }
+    else if (e.code === 'Space') { e.preventDefault(); state.playing ? stopPlay() : startPlay(); }
+    else if (e.key === 'r' || e.key === 'R') $('btnReset').click();
+    else if (e.key === 'f' || e.key === 'F') $('btnFull').click();
+    else if (e.key === 'Escape') { state.selectedId = null; updateDetailForSelection(); }
+  });
+}
+
+/* -------------------------------------------------------------------- 启动 */
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+else init();
+
+function init() {
+  $('timeline').max = String(ERAS.length - 1);
+  $('timeline').value = String(state.index);
+  buildTicks();
+  bindUi();
+  boot();
+  window.addEventListener('hashchange', () => {
+    const key = (location.hash.match(/y=([\w]+)/) || [])[1];
+    const idx = key ? ERAS.findIndex((e) => e.key === key) : -1;
+    if (idx >= 0 && idx !== state.index) requestEra(idx);
+  });
+}

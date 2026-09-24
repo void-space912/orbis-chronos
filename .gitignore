@@ -1,0 +1,23 @@
+# 运行与验收产生的临时文件，不纳入仓库
+verify/
+data/build.log
+*.log
+
+# 本机专用快捷方式（内含本机绝对路径，对他人无用）
+*.lnk
+*.url
+
+# 贴图原图（3 MB，可用 node scripts/fetch-assets.mjs 重新取回）
+vendor/img/_source/
+
+# 浏览器调试用的临时配置目录
+.bp*/
+.browser-profile/
+
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+*.swp
