@@ -1,5 +1,7 @@
 # 寰宇纪年 · ORBIS CHRONOS
 
+**中文** | [English](README.en.md)
+
 一个科幻风格的三维历史版图地球：在真实地球贴图上按年代显示各国／各政权的疆域，
 拖动时间轴即可穿越公元前 10000 年至 2025 年，版图以升起／沉入动画平滑过渡，
 并把战争、条约、王朝更替等历史大事标在球面上。
@@ -21,7 +23,8 @@
 **快速开始（命令行）**
 
 ```bash
-git clone <你的仓库地址> && cd orbis-chronos
+git clone https://github.com/void-space912/orbis-chronos.git
+cd orbis-chronos
 npm start            # = node scripts/serve.mjs 3180
 # 浏览器打开 http://127.0.0.1:3180/
 ```
@@ -218,14 +221,14 @@ node scripts/measure-data.mjs 1900 1492   # 纯数据侧耗时
 
 1. 新建 GitHub 仓库并推送本目录（`.gitignore` 已排除验收截图与贴图原图）：
    ```bash
-   git init && git add . && git commit -m "feat: 寰宇纪年 · 三维历史版图地球"
-   git branch -M main
-   git remote add origin https://github.com/<你的账号>/orbis-chronos.git
+   git remote add origin https://github.com/void-space912/orbis-chronos.git
    git push -u origin main
    ```
+   （仓库需先在 GitHub 上创建；也可以 `gh auth login` 后一条命令建好并推送：
+   `gh repo create orbis-chronos --public --source=. --remote=origin --push`）
 2. 仓库 **Settings → Pages → Source** 选择 **GitHub Actions**（仓库内已附
    `.github/workflows/pages.yml`，推送到 `main` 即自动发布），
-   几分钟后访问 `https://<你的账号>.github.io/orbis-chronos/`。
+   几分钟后访问 <https://void-space912.github.io/orbis-chronos/>。
 3. 也可以在 Cloudflare Pages / Netlify / Vercel 直接连仓库，构建命令留空、输出目录填 `/`。
 
 > 首次访问约 1.2 MB（引擎 + 贴图 + 当前年代数据），之后的年代数据按需加载并缓存；

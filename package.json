@@ -32,10 +32,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/<your-account>/orbis-chronos.git"
+    "url": "https://github.com/void-space912/orbis-chronos.git"
   },
-  "homepage": "https://github.com/<your-account>/orbis-chronos#readme",
+  "homepage": "https://void-space912.github.io/orbis-chronos/",
   "bugs": {
-    "url": "https://github.com/<your-account>/orbis-chronos/issues"
+    "url": "https://github.com/void-space912/orbis-chronos/issues"
   }
 }
