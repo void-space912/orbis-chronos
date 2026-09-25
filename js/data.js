@@ -3,7 +3,7 @@
  * 数据文件由 scripts/build-data.mjs 从 historical-basemaps / Natural Earth 生成。
  */
 import { eraFile } from './eras.js';
-import { classify, labelOf, zhName, zhType, CONTINENTS } from './i18n.js';
+import { classify, labelOf, zhName, CONTINENTS } from './i18n.js';
 
 const cache = new Map();
 const pending = new Map();
@@ -121,7 +121,7 @@ function decorate(raw, modern, year) {
     nameEn: modern ? raw.e || raw.n : raw.n,
     translated: modern || zh !== raw.n,
     type: raw.t || '',
-    typeZh: raw.t ? zhType(raw.t) : labelOf(cls),
+    clsLabel: labelOf(cls),
     subject: raw.s || '',
     partOf: raw.p || '',
     wiki: raw.w || (modern && raw.e ? `https://en.wikipedia.org/wiki/${encodeURIComponent(String(raw.e).replace(/ /g, '_'))}` : ''),

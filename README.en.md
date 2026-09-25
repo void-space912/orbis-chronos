@@ -49,6 +49,12 @@ HTML/CSS/ES modules and needs no build step. On Windows you can also just double
   star dust and orbiting particles on a 2D effect layer.
 - **Layer switches** — fill, borders, polity labels, events, pulsing rings (off by default),
   decorative energy arcs, graticule, "more polities".
+- **Bilingual UI (Chinese / English)** — switch with the 中文 / EN button in the top right.
+  UI copy, era labels, polity names, event names, the event log and the dossier all follow;
+  in Chinese mode the original English name shows as a subtitle and vice versa.
+  You can also force a language with `?lang=en` or `#y=1900&lang=en`; the choice is kept in
+  `localStorage`. Translations live in `js/lang.js` (UI), `js/eras.js` (era labels/notes),
+  `js/i18n.js` (polity names & categories) and `data/events.json` (event names).
 - **Offline capable** — globe.gl and all textures are vendored in `vendor/`; nothing is fetched
   from a CDN at runtime.
 

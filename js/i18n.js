@@ -436,21 +436,22 @@ export function hasZhName(rawName) {
   return Boolean(NAMES[String(rawName || '').trim()]);
 }
 
-export function zhType(rawType) {
-  if (!rawType) return '未标注';
+export function zhType(rawType, lang = 'zh') {
+  if (!rawType) return '';
+  if (lang === 'en') return rawType;
   return TYPES[rawType] || rawType;
 }
 
-/** Natural Earth 的 CONTINENT 字段 → 中文与色相 */
+/** Natural Earth 的 CONTINENT 字段 → 中英标签与色相 */
 export const CONTINENTS = {
-  Asia: { label: '亚洲', hue: 32 },
-  Europe: { label: '欧洲', hue: 268 },
-  Africa: { label: '非洲', hue: 44 },
-  'North America': { label: '北美洲', hue: 196 },
-  'South America': { label: '南美洲', hue: 150 },
-  Oceania: { label: '大洋洲', hue: 292 },
-  Antarctica: { label: '南极洲', hue: 212 },
-  'Seven seas (open ocean)': { label: '公海', hue: 200 },
+  Asia: { label: '亚洲', labelEn: 'Asia', hue: 32 },
+  Europe: { label: '欧洲', labelEn: 'Europe', hue: 268 },
+  Africa: { label: '非洲', labelEn: 'Africa', hue: 44 },
+  'North America': { label: '北美洲', labelEn: 'North America', hue: 196 },
+  'South America': { label: '南美洲', labelEn: 'South America', hue: 150 },
+  Oceania: { label: '大洋洲', labelEn: 'Oceania', hue: 292 },
+  Antarctica: { label: '南极洲', labelEn: 'Antarctica', hue: 212 },
+  'Seven seas (open ocean)': { label: '公海', labelEn: 'Open ocean', hue: 200 },
 };
 
 /**
@@ -484,6 +485,18 @@ export const CLASS_LABEL = {
   other: '其他政权／族群',
 };
 
+export const CLASS_LABEL_EN = {
+  empire: 'Empires & khanates',
+  kingdom: 'Kingdoms & duchies',
+  republic: 'Republics & unions',
+  colonial: 'Colonies & dependencies',
+  state: 'Modern-era states',
+  farming: 'Farming & pastoral societies',
+  hunting: 'Hunter-gatherer societies',
+  culture: 'Culture areas & civilisations',
+  other: 'Other polities & peoples',
+};
+
 export const CLASS_COLOR = {
   empire: '#ffb14d',
   kingdom: '#b98bff',
@@ -497,12 +510,20 @@ export const CLASS_COLOR = {
 };
 
 /** 图例文案：同时支持历史分类与「按洲」分类 */
-export function labelOf(cls) {
+export function labelOf(cls, lang = 'zh') {
   if (cls && cls.startsWith('c:')) {
     const c = CONTINENTS[cls.slice(2)];
-    return c ? c.label : '其他地区';
+    if (!c) return lang === 'en' ? 'Other regions' : '其他地区';
+    return lang === 'en' ? c.labelEn : c.label;
   }
+  if (lang === 'en') return CLASS_LABEL_EN[cls] || cls;
   return CLASS_LABEL[cls] || cls;
+}
+
+/** 数据集没给 type 时，用分类名兜底 */
+export function typeLabelOf(rawType, cls, lang = 'zh') {
+  if (rawType) return zhType(rawType, lang);
+  return labelOf(cls, lang);
 }
 
 /** 图例色块：与球面配色同源 */

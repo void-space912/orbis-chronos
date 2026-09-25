@@ -2,11 +2,16 @@
  * 寰宇纪年 —— 三维历史版图地球主程序。
  * 渲染：globe.gl（three.js）；数据：historical-basemaps + Natural Earth。
  */
-import { ERAS, formatYear, formatYearShort, isMajorEra } from './eras.js';
+import {
+  ERAS, formatYear, formatYearShort, eraLabel, eraNote, isMajorEra,
+} from './eras.js';
 import { loadEra, prefetch, isCached } from './data.js';
 import { createEffects } from './effects.js';
-import { labelOf, colorOf } from './i18n.js';
-import { loadEvents, eventsForEra, formatEventYear, EVENT_TYPES } from './events.js';
+import { labelOf, colorOf, typeLabelOf } from './i18n.js';
+import { loadEvents, eventsForEra, formatEventYear, eventTypeLabel } from './events.js';
+import {
+  LANGS, getLang, setLang, onLangChange, t, pickLang, secondaryName, applyStaticI18n,
+} from './lang.js';
 
 const $ = (id) => document.getElementById(id);
 const BASE_ALTITUDE = 0.008;
@@ -52,11 +57,21 @@ let switchRunning = false;
 /* ------------------------------------------------------------------ 工具 */
 
 function debounce(fn, ms) {
-  let t = 0;
+  let timer = 0;
   return (...args) => {
-    clearTimeout(t);
-    t = setTimeout(() => fn(...args), ms);
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), ms);
   };
+}
+
+/** 当前语言下的政权名称 */
+function polityName(f) {
+  return pickLang(f, 'name') || f.nameZh || f.name;
+}
+
+/** 事件名称（按语言） */
+function eventName(e) {
+  return pickLang(e, 'name') || e.nameZh || e.name;
 }
 
 function currentEra() {
@@ -72,7 +87,7 @@ function boot() {
   };
 
   if (typeof window.Globe !== 'function') {
-    step('三维引擎未能载入，请确认 vendor/globe.gl.min.js 存在', 100);
+    step(t('boot.fail.engine'), 100);
     $('bootStep').style.color = '#ff8a8a';
     return;
   }
@@ -80,17 +95,17 @@ function boot() {
   const t0 = performance.now();
   state.timing = { start: t0 };
 
-  step('正在构建三维地球…', 18);
+  step(t('boot.globe'), 18);
   let globeReady;
   try {
     globeReady = createGlobe();
   } catch (err) {
-    step(`三维初始化失败：${err.message}`, 100);
+    step(t('boot.fail.globe', { msg: err.message }), 100);
     $('bootStep').style.color = '#ff8a8a';
     return;
   }
 
-  step('正在读取历史版图数据…', 45);
+  step(t('boot.data'), 45);
 
   const hashKey = (location.hash.match(/y=([\w]+)/) || [])[1];
   const hashIdx = hashKey ? ERAS.findIndex((e) => e.key === hashKey) : -1;
@@ -108,10 +123,10 @@ function boot() {
       onEraChanged({ silent: true });
       state.timing.eraKey = currentEra().key;
       state.timing.dataMs = Math.round(performance.now() - t0);
-      mark('版图数据就绪，正在准备贴图…');
+      mark(t('boot.textures'));
     })
     .catch((err) => {
-      step(`数据载入失败：${err.message}`, 100);
+      step(t('boot.fail.data', { msg: err.message }), 100);
       $('bootStep').style.color = '#ff8a8a';
       throw err;
     });
@@ -232,7 +247,7 @@ function createGlobe() {
     .htmlElement(labelNode)
     .htmlElementVisibilityModifier((el, isVisible) => el.classList.toggle('is-behind', !isVisible))
     .ringsData([])
-    .ringColor(() => (t) => `rgba(120, 235, 255, ${Math.max(0, 0.55 * (1 - t))})`)
+    .ringColor(() => (prog) => `rgba(120, 235, 255, ${Math.max(0, 0.55 * (1 - prog))})`)
     .ringMaxRadius((d) => 1.6 + Math.sqrt(d.rel) * 4)
     .ringPropagationSpeed((d) => 0.9 + Math.sqrt(d.rel))
     .ringRepeatPeriod((d) => 1400 + 900 * Math.random())
@@ -369,9 +384,15 @@ function applyEraData(data, era) {
 
 /** 球面 DOM 图层：政权名称标签 + 历史大事标记 + 脉冲光环 + 能量弧 */
 function renderMapLayers() {
+  const lang = getLang();
+  // 语言切换时必须换新对象：three-globe 按对象身份判断"数据没变"，
+  // 直接复用同一个要素对象的话，球面标签不会重建、文字会停在旧语言
+  const wrap = (d) => ({ ...d, nodeKey: `${d.id}:${lang}` });
   const markers = [];
-  if (state.layers.labels) markers.push(...state.tops);
-  if (state.layers.events) markers.push(...state.eraEvents);
+  if (state.layers.labels) markers.push(...state.tops.map(wrap));
+  if (state.layers.events) markers.push(...state.eraEvents.map(wrap));
+  labelNodes.clear();
+  eventNodes.clear();
   globe.htmlElementsData(markers);
   globe.ringsData(state.layers.rings ? state.tops.slice(0, 5) : []);
   globe.arcsData(state.layers.arcs ? buildArcs(state.tops) : []);
@@ -390,7 +411,7 @@ function labelNode(d) {
     el.innerHTML = '<span class="g-inner"><span class="g-dot"></span><span class="g-txt"></span></span>';
     labelNodes.set(d.id, el);
   }
-  el.querySelector('.g-txt').textContent = d.nameZh;
+  el.querySelector('.g-txt').textContent = polityName(d);
   el.style.setProperty('--ls', String(11 + Math.round(Math.min(6, Math.sqrt(d.rel) * 9))));
   el.style.color = d.stroke;
   return el;
@@ -405,8 +426,8 @@ function eventNode(d) {
       + '<span class="g-event-text"><b class="g-event-year"></b><i class="g-event-name"></i></span></span>';
     eventNodes.set(d.id, el);
   }
-  el.querySelector('.g-event-year').textContent = formatEventYear(d.year);
-  el.querySelector('.g-event-name').textContent = d.name;
+  el.querySelector('.g-event-year').textContent = formatEventYear(d.year, getLang());
+  el.querySelector('.g-event-name').textContent = eventName(d);
   el.style.setProperty('--ev', d.color);
   return el;
 }
@@ -430,18 +451,25 @@ function buildArcs(tops) {
 }
 
 function updateHud(data, era) {
+  const lang = getLang();
   const shown = state.features.length;
   const total = data.features.length;
-  const biggest = data.features.slice(0, 3).map((f) => f.nameZh).join(' · ');
-  $('tlStats').textContent = `${formatYearShort(era.year)} · ${total} 个政权／文化区域${shown < total ? ` · 显示前 ${shown} 大` : ''} · 面积最大：${biggest}`;
-  $('yearValue').textContent = formatYearShort(era.year);
-  $('yearLabel').textContent = era.label;
-  $('yearMeta').textContent = `${era.note || ''}${shown < total ? ` · 按面积显示前 ${shown} 个` : ''}`;
+  const biggest = data.features.slice(0, 3).map((f) => polityName(f)).join(' · ');
+  $('tlStats').textContent = t('stats.line', {
+    era: formatYearShort(era.year, lang),
+    total,
+    cap: shown < total ? t('stats.capped', { n: shown }) : '',
+    top: biggest,
+  });
+  $('yearValue').textContent = formatYearShort(era.year, lang);
+  $('yearLabel').textContent = eraLabel(era, lang);
+  $('yearMeta').textContent = `${eraNote(era, lang)}${shown < total ? t('yearMeta.capped', { n: shown }) : ''}`;
   updateTicks();
   updateSliderGlow();
 }
 
 function updateLegend(feats) {
+  const lang = getLang();
   const counts = new Map();
   for (const f of feats) counts.set(f.cls, (counts.get(f.cls) || 0) + 1);
   const total = feats.length || 1;
@@ -450,9 +478,10 @@ function updateLegend(feats) {
     .map(([cls, n]) => {
       const c = colorOf(cls);
       const pct = ((n / total) * 100).toFixed(0);
-      return `<div class="legend-item" title="${labelOf(cls)} · ${n} 个 · 占 ${pct}%"><span class="legend-swatch" style="background:${c};color:${c}"></span>${labelOf(cls)} · ${n}</div>`;
+      const label = labelOf(cls, lang);
+      return `<div class="legend-item" title="${label} · ${n} · ${pct}%"><span class="legend-swatch" style="background:${c};color:${c}"></span>${label} · ${n}</div>`;
     });
-  $('legend').innerHTML = rows.join('') || '<div class="legend-item">暂无数据</div>';
+  $('legend').innerHTML = rows.join('') || `<div class="legend-item">${t('legend.empty')}</div>`;
 }
 
 /* ------------------------------------------------------- 历史大事面板 */
@@ -460,21 +489,23 @@ function updateLegend(feats) {
 function renderEventsPanel() {
   const host = $('eventsPanel');
   if (!host) return;
+  const lang = getLang();
   const list = state.eraEvents;
   const era = currentEra();
   if (!list.length) {
     host.hidden = true;
+    $('eventsList').innerHTML = '';
     return;
   }
   host.hidden = false;
-  $('eventsEra').textContent = era.label;
-  $('eventsCount').textContent = `收录 ${list.length} 条`;
+  $('eventsEra').textContent = eraLabel(era, lang);
+  $('eventsCount').textContent = t('events.count', { n: list.length });
   const rows = list.map((e) => {
     const active = state.selectedEventId === e.id ? ' active' : '';
     return `<button type="button" class="event-row${active}" data-event="${e.id}" style="--ev:${e.color}">`
-      + `<span class="event-year">${formatEventYear(e.year)}</span>`
-      + `<span class="event-body"><span class="event-name">${escapeHtml(e.name)}</span>`
-      + `<span class="event-meta">${escapeHtml(e.typeLabel)}${e.nameEn ? ` · ${escapeHtml(e.nameEn)}` : ''}</span></span>`
+      + `<span class="event-year">${formatEventYear(e.year, lang)}</span>`
+      + `<span class="event-body"><span class="event-name">${escapeHtml(eventName(e))}</span>`
+      + `<span class="event-meta">${escapeHtml(eventTypeLabel(e.type, lang))}${secondaryName(e, 'name') ? ` · ${escapeHtml(secondaryName(e, 'name'))}` : ''}</span></span>`
       + '</button>';
   });
   $('eventsList').innerHTML = rows.join('');
@@ -507,7 +538,7 @@ function buildTicks() {
   for (let i = 0; i < n; i += 1) {
     const el = document.createElement('i');
     el.style.left = `${(i / (n - 1)) * 100}%`;
-    el.title = ERAS[i].label;
+    el.title = eraLabel(ERAS[i], getLang());
     el.dataset.era = ERAS[i].key;
     if (isMajorEra(ERAS[i])) el.classList.add('major');
     frag.appendChild(el);
@@ -527,7 +558,7 @@ function markEventTicks() {
     const el = state.tickNodes[i];
     el.classList.toggle('has-event', count > 0);
     el.classList.toggle('has-war', eventsForEra(i).some((e) => e.type === 'war'));
-    if (count) el.title = `${ERAS[i].label} · 收录 ${count} 条大事`;
+    if (count) el.title = `${eraLabel(ERAS[i], getLang())} · ${t('events.count', { n: count })}`;
   }
 }
 
@@ -547,7 +578,7 @@ let scrambleTimer = 0;
 
 function flashYearChip() {
   clearInterval(scrambleTimer);
-  $('yearValue').textContent = formatYearShort(currentEra().year);
+  $('yearValue').textContent = formatYearShort(currentEra().year, getLang());
   const hud = document.querySelector('.hud-year');
   hud.classList.remove('flash');
   void hud.offsetWidth;
@@ -555,9 +586,11 @@ function flashYearChip() {
 }
 
 function scrambleYear() {
+  const lang = getLang();
   const era = currentEra();
-  const target = formatYearShort(era.year);
-  const prefix = era.year < 0 ? '前' : '';
+  const target = formatYearShort(era.year, lang);
+  const prefix = lang === 'en' ? '' : (era.year < 0 ? '前' : '');
+  const suffix = lang === 'en' && era.year < 0 ? ' BCE' : '';
   let frames = 0;
   clearInterval(scrambleTimer);
   scrambleTimer = setInterval(() => {
@@ -568,7 +601,7 @@ function scrambleYear() {
       return;
     }
     const digits = String(Math.abs(era.year)).replace(/\d/g, () => String(Math.floor(Math.random() * 10)));
-    $('yearValue').textContent = prefix + digits;
+    $('yearValue').textContent = prefix + digits + suffix;
   }, 46);
 }
 
@@ -588,7 +621,7 @@ function requestEra(index, { silent = false } = {}) {
       requestedIndex = null;
       const era = ERAS[target];
       const cached = isCached(era);
-      if (!cached) $('yearMeta').textContent = `正在载入 ${era.label} 的版图数据…`;
+      if (!cached) $('yearMeta').textContent = t('year.loadingEra', { era: eraLabel(era, getLang()) });
       try {
         const stepT0 = performance.now();
         const data = await loadEra(era);
@@ -599,7 +632,7 @@ function requestEra(index, { silent = false } = {}) {
         state.timing.lastStepMs = Math.round(performance.now() - stepT0);
         state.timing.lastStepCached = cached;
       } catch (err) {
-        $('yearMeta').textContent = `载入失败：${err.message}`;
+        $('yearMeta').textContent = t('year.fail', { msg: err.message });
       }
     }
     switchRunning = false;
@@ -653,7 +686,7 @@ function step(delta) {
 function updatePlayLabel() {
   const btn = $('btnPlay');
   btn.classList.toggle('playing', state.playing);
-  $('btnPlayLabel').textContent = state.playing ? '暂停' : '播放';
+  $('btnPlayLabel').textContent = state.playing ? t('btn.pause') : t('btn.play');
   btn.setAttribute('aria-pressed', String(state.playing));
 }
 
@@ -733,27 +766,28 @@ function updateDetailForSelection() {
   }
   panel.hidden = false;
 
+  const lang = getLang();
   const era = currentEra();
   const rank = state.features.indexOf(f) + 1;
   const total = state.features.length;
   const isCulture = f.cls === 'hunting' || f.cls === 'farming' || f.cls === 'culture';
 
-  $('detailKicker').textContent = isCulture ? '文化区域档案' : '政权档案';
-  $('detailName').textContent = f.nameZh;
-  $('detailSub').textContent = f.nameEn && f.nameEn !== f.nameZh ? f.nameEn : '';
+  $('detailKicker').textContent = isCulture ? t('panel.dossierCulture') : t('panel.dossier');
+  $('detailName').textContent = polityName(f);
+  $('detailSub').textContent = secondaryName(f, 'name');
 
   const subject = f.subject && f.subject !== f.name ? f.subject : '';
   const partOf = f.partOf && f.partOf !== f.name && f.partOf !== f.subject ? f.partOf : '';
   const rows = [
-    ['分类', labelOf(f.cls)],
-    ['数据集类型', f.type || '未标注'],
-    ['版图占比', `${(f.share * 100).toFixed(2)}%`],
-    ['本年代排名', `第 ${rank} / ${total} 大`],
-    ['近似中心', formatCoord(f.lat, f.lng)],
-    ['存在年代', spanOf(f.name)],
+    [t('field.class'), labelOf(f.cls, lang)],
+    [t('field.type'), f.type ? typeLabelOf(f.type, f.cls, lang) : t('field.none')],
+    [t('field.share'), `${(f.share * 100).toFixed(2)}%`],
+    [t('field.rank'), t('rank.value', { n: rank, total })],
+    [t('field.center'), formatCoord(f.lat, f.lng)],
+    [t('field.span'), spanOf(f.name, lang)],
   ];
-  if (subject) rows.push(['归属', subject]);
-  if (partOf) rows.push(['所属', partOf]);
+  if (subject) rows.push([t('field.subject'), subject]);
+  if (partOf) rows.push([t('field.partOf'), partOf]);
   $('detailGrid').innerHTML = rows
     .map(([k, v]) => `<div><dt>${escapeHtml(k)}</dt><dd title="${escapeHtml(v)}">${escapeHtml(v)}</dd></div>`)
     .join('');
@@ -765,10 +799,10 @@ function updateDetailForSelection() {
     eventsBlock.hidden = false;
     $('detailEvents').innerHTML = events
       .map((e) => `<button type="button" class="detail-chip" data-event="${e.id}" style="--ev:${e.color}">`
-        + `<b>${formatEventYear(e.year)}</b>${escapeHtml(e.name)}</button>`)
+        + `<b>${formatEventYear(e.year, lang)}</b>${escapeHtml(eventName(e))}</button>`)
       .join('')
       + (state.eraEvents.length > 4
-        ? `<button type="button" class="detail-chip ghost" data-more-events="1">${state.detailEventsAll ? '收起' : `全部 ${state.eraEvents.length} 条`} →</button>`
+        ? `<button type="button" class="detail-chip ghost" data-more-events="1">${state.detailEventsAll ? t('panel.less') : t('panel.more', { n: state.eraEvents.length })}</button>`
         : '');
   } else {
     eventsBlock.hidden = true;
@@ -778,11 +812,11 @@ function updateDetailForSelection() {
   // 延伸资料：数据集的原始链接（若有）+ 中英文维基检索入口，永远有可用链接
   const links = [];
   const datasetUrl = sanitizeUrl(f.wiki);
-  if (datasetUrl) links.push({ href: datasetUrl, label: '数据集原始链接 ↗', ghost: false });
+  if (datasetUrl) links.push({ href: datasetUrl, label: t('panel.datasetLink'), ghost: false });
   const zhUrl = wikiSearch('zh', f.nameZh);
-  if (zhUrl) links.push({ href: zhUrl, label: '中文维基检索 ↗', ghost: true });
+  if (zhUrl) links.push({ href: zhUrl, label: t('panel.zhWiki'), ghost: true });
   const enUrl = wikiSearch('en', f.nameEn || f.name);
-  if (enUrl) links.push({ href: enUrl, label: '英文维基检索 ↗', ghost: true });
+  if (enUrl) links.push({ href: enUrl, label: t('panel.enWiki'), ghost: true });
   const linksBlock = $('detailLinksBlock');
   if (links.length) {
     linksBlock.hidden = false;
@@ -795,14 +829,14 @@ function updateDetailForSelection() {
   }
 
   $('detailSource').textContent = era.modern
-    ? `数据来源：Natural Earth 110m adm-0 countries（公有领域）· ${era.label}`
-    : `数据来源：historical-basemaps（CC BY-SA 4.0）· ${era.label}快照`;
+    ? t('panel.source.modern', { era: eraLabel(era, lang) })
+    : t('panel.source.historical', { era: eraLabel(era, lang) });
 
   const foot = [];
-  foot.push(isCulture ? '该要素在数据集中是文化圈／考古学文化，不是现代意义上的国家。' : '');
-  foot.push(`近似中心为数据内最大多边形外接矩形的中心（${formatCoord(f.lat, f.lng)}），面积占比按经纬度估算，均非测绘精度。`);
-  if (!f.translated) foot.push('名称保留数据集原文（本项目暂无对应中文译名）。');
-  else if (!era.modern) foot.push('中文译名为本项目整理，可能与学术译名存在差异。');
+  foot.push(isCulture ? t('panel.foot.culture') : '');
+  foot.push(t('panel.foot.coord', { coord: formatCoord(f.lat, f.lng) }));
+  if (!f.translated && lang === 'zh') foot.push(t('panel.foot.untranslated'));
+  else if (!era.modern && lang === 'zh') foot.push(t('panel.foot.translated'));
   $('detailFoot').textContent = foot.filter(Boolean).join(' ');
 
   state.detailLinkCount = links.length;
@@ -829,31 +863,36 @@ function sanitizeUrl(raw) {
   return '';
 }
 
-function wikiSearch(lang, term) {
-  const t = String(term || '').trim();
-  if (!t) return '';
-  return `https://${lang}.wikipedia.org/w/index.php?search=${encodeURIComponent(t)}`;
+function wikiSearch(wikiLang, term) {
+  const s = String(term || '').trim();
+  if (!s) return '';
+  return `https://${wikiLang}.wikipedia.org/w/index.php?search=${encodeURIComponent(s)}`;
 }
 
-function spanOf(name) {
+function spanOf(name, lang = getLang()) {
   const idx = state.nameIndex;
-  if (!idx || !idx[name]) return '当前快照';
+  if (!idx || !idx[name]) return t('span.current');
   const years = idx[name];
   const first = years[0];
   const last = years[years.length - 1];
-  const label = (y) => (y < 0 ? `前${Math.abs(y)}` : `${y}`);
-  if (years.length === 1) return `${label(first)} 年快照`;
-  return `${label(first)} — ${label(last)} 年 · ${years.length} 个快照`;
+  if (years.length === 1) return t('span.single', { year: formatYearShort(first, lang) });
+  return t('span.multi', {
+    from: formatYearShort(first, lang),
+    to: formatYearShort(last, lang),
+    n: years.length,
+  });
 }
 
 const pointerScreen = { x: 0, y: 0 };
 
 function showTooltip(f) {
+  const lang = getLang();
   const tt = $('tooltip');
   tt.hidden = false;
-  tt.querySelector('.tt-name').textContent = f.nameZh;
-  const extra = f.nameEn && f.nameEn !== f.nameZh ? ` · ${f.nameEn}` : '';
-  tt.querySelector('.tt-meta').textContent = `${f.typeZh} · 占比 ${(f.share * 100).toFixed(2)}%${extra}`;
+  tt.querySelector('.tt-name').textContent = polityName(f);
+  const extra = secondaryName(f, 'name');
+  const type = typeLabelOf(f.type, f.cls, lang);
+  tt.querySelector('.tt-meta').textContent = `${type} · ${t('tooltip.share', { pct: (f.share * 100).toFixed(2) })}${extra ? ` · ${extra}` : ''}`;
   positionTooltip();
 }
 
@@ -890,36 +929,73 @@ async function loadNameIndex() {
 
 function buildSwitches() {
   const defs = [
-    ['fill', '版图填充', () => globe.polygonCapColor(polygonCap)],
-    ['stroke', '边界描边', () => globe.polygonStrokeColor(polygonStroke)],
-    ['labels', '政权名称', () => renderMapLayers()],
-    ['events', '历史大事', () => renderMapLayers()],
-    ['rings', '脉冲光环（闪烁）', () => renderMapLayers()],
-    ['arcs', '能量弧（装饰）', () => renderMapLayers()],
-    ['graticule', '经纬网', () => globe.pathsData(state.layers.graticule ? buildGraticule() : [])],
-    ['hideGiant', '隐藏巨型区域', () => loadEra(currentEra()).then((data) => applyEraData(data, currentEra()))],
+    ['fill', 'layer.fill', () => globe.polygonCapColor(polygonCap)],
+    ['stroke', 'layer.stroke', () => globe.polygonStrokeColor(polygonStroke)],
+    ['labels', 'layer.labels', () => renderMapLayers()],
+    ['events', 'layer.events', () => renderMapLayers()],
+    ['rings', 'layer.rings', () => renderMapLayers()],
+    ['arcs', 'layer.arcs', () => renderMapLayers()],
+    ['graticule', 'layer.graticule', () => globe.pathsData(state.layers.graticule ? buildGraticule() : [])],
+    ['hideGiant', 'layer.hideGiant', () => loadEra(currentEra()).then((data) => applyEraData(data, currentEra()))],
   ];
   $('layerSwitches').innerHTML = defs
-    .map(([key, label]) => `<label class="switch"><span>${label}</span><input type="checkbox" data-layer="${key}" ${state.layers[key] ? 'checked' : ''}><span class="track"></span></label>`)
-    .join('') + `<label class="switch"><span>更多政权（≤${MAX_POLYGONS_ALL}）</span><input type="checkbox" data-layer="all"><span class="track"></span></label>`;
+    .map(([key, label]) => `<label class="switch"><span>${t(label)}</span><input type="checkbox" data-layer="${key}" ${state.layers[key] ? 'checked' : ''}><span class="track"></span></label>`)
+    .join('') + `<label class="switch"><span>${t('layer.morePolities', { n: MAX_POLYGONS_ALL })}</span><input type="checkbox" data-layer="all" ${state.maxPolitiesAll ? 'checked' : ''}><span class="track"></span></label>`;
 
-  $('layerSwitches').addEventListener('change', (e) => {
-    const input = e.target.closest('input[data-layer]');
-    if (!input) return;
-    const key = input.dataset.layer;
-    if (key === 'all') {
-      state.maxPolitiesAll = input.checked;
-      loadEra(currentEra()).then((data) => applyEraData(data, currentEra()));
-      return;
-    }
-    state.layers[key] = input.checked;
-    const def = defs.find(([k]) => k === key);
-    def && def[2]();
-  });
+  if (!buildSwitches.bound) {
+    buildSwitches.bound = true;
+    $('layerSwitches').addEventListener('change', (e) => {
+      const input = e.target.closest('input[data-layer]');
+      if (!input) return;
+      const key = input.dataset.layer;
+      if (key === 'all') {
+        state.maxPolitiesAll = input.checked;
+        loadEra(currentEra()).then((data) => applyEraData(data, currentEra()));
+        return;
+      }
+      state.layers[key] = input.checked;
+      const def = defs.find(([k]) => k === key);
+      def && def[2]();
+    });
+  }
+}
+
+/** 语言切换按钮（右上角 中文 / EN） */
+function buildLangSwitch() {
+  const host = $('langSwitch');
+  if (!host) return;
+  host.innerHTML = LANGS
+    .map((l) => `<button type="button" class="lang-btn${l.id === getLang() ? ' active' : ''}" data-lang="${l.id}" aria-pressed="${l.id === getLang()}">${l.label}</button>`)
+    .join('');
+  if (!buildLangSwitch.bound) {
+    buildLangSwitch.bound = true;
+    host.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-lang]');
+      if (btn) setLang(btn.dataset.lang);
+    });
+  }
+}
+
+/** 语言变化后统一刷新：静态文案 + 动态区块 + 球面标签 */
+function applyLanguage() {
+  applyStaticI18n();
+  buildLangSwitch();
+  buildSwitches();
+  buildTicks();
+  updateHud({ features: state.features }, currentEra());
+  updateLegend(state.features);
+  renderMapLayers();
+  renderEventsPanel();
+  updateDetailForSelection();
+  updatePlayLabel();
+  hideTooltip();
 }
 
 function bindUi() {
   buildSwitches();
+  buildLangSwitch();
+  applyStaticI18n();
+  onLangChange(() => applyLanguage());
 
   $('timeline').addEventListener('input', (e) => {
     stopPlay();

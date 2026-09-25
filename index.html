@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>寰宇纪年 · 历史版图三维地球</title>
-<meta name="description" content="在三维地球上浏览公元前 10000 年至当代的国家与政权版图，滑动时间轴查看版图变迁。数据来源：historical-basemaps、Natural Earth。" />
+<meta name="description" content="在三维地球上浏览公元前 10000 年至当代的国家与政权版图，滑动时间轴查看版图变迁，并把战争、条约等历史大事标在球面上。数据来源：historical-basemaps、Natural Earth。A 3D globe of historical borders from 10,000 BCE to 2025." />
 <meta name="theme-color" content="#04070f" />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='none' stroke='%2358e8ff' stroke-width='2'/%3E%3Cellipse cx='16' cy='16' rx='13' ry='5' fill='none' stroke='%2358e8ff' stroke-width='1.4'/%3E%3Cpath d='M16 3v26' stroke='%2358e8ff' stroke-width='1.4'/%3E%3C/svg%3E" />
 <link rel="stylesheet" href="css/style.css" />
@@ -37,7 +37,7 @@
     <div class="stage-scanlines" aria-hidden="true"></div>
   </div>
 
-  <!-- 顶部标识 -->
+  <!-- 顶部标识 + 语言切换 -->
   <header class="hud hud-brand">
     <div class="brand-mark" aria-hidden="true">
       <span class="mark-ring"></span>
@@ -45,8 +45,9 @@
     </div>
     <div class="brand-text">
       <h1>寰宇纪年 <em>ORBIS CHRONOS</em></h1>
-      <p>三维历史版图地球 · 公元前 10000 年 — 2025 年</p>
+      <p data-i18n="app.tagline">三维历史版图地球 · 公元前 10000 年 — 2025 年</p>
     </div>
+    <div class="lang-switch" id="langSwitch" role="group" data-i18n-aria="lang.switch" aria-label="语言"></div>
   </header>
 
   <!-- 当前纪年 -->
@@ -58,17 +59,17 @@
 
   <!-- 政权详情 -->
   <aside class="hud hud-detail" id="detailPanel" hidden>
-    <button class="panel-close" id="detailClose" type="button" aria-label="关闭详情">×</button>
+    <button class="panel-close" id="detailClose" type="button" data-i18n-aria="panel.close" aria-label="关闭详情">×</button>
     <div class="detail-kicker" id="detailKicker">政权档案</div>
     <h2 id="detailName">—</h2>
     <div class="detail-sub" id="detailSub"></div>
     <dl class="detail-grid" id="detailGrid"></dl>
     <div class="detail-block" id="detailEventsBlock" hidden>
-      <div class="detail-block-title">本年代收录的大事</div>
+      <div class="detail-block-title" data-i18n="panel.events">本年代收录的大事</div>
       <div class="detail-chips" id="detailEvents"></div>
     </div>
     <div class="detail-block" id="detailLinksBlock" hidden>
-      <div class="detail-block-title">延伸资料</div>
+      <div class="detail-block-title" data-i18n="panel.links">延伸资料</div>
       <div class="detail-links" id="detailLinks"></div>
     </div>
     <div class="detail-source" id="detailSource"></div>
@@ -78,28 +79,24 @@
   <!-- 左栏：控制台 + 大事记（用一列排布，避免和右侧政权档案卡片打架） -->
   <div class="hud-column">
     <aside class="hud hud-console" id="consolePanel">
-      <button class="console-toggle" id="consoleToggle" type="button" aria-expanded="true">控制台</button>
+      <button class="console-toggle" id="consoleToggle" type="button" aria-expanded="true" data-i18n="console.title">控制台</button>
       <div class="console-body">
-        <div class="console-title">观测图层</div>
+        <div class="console-title" data-i18n="console.layers">观测图层</div>
         <div class="switches" id="layerSwitches"></div>
-        <div class="console-title">配色</div>
+        <div class="console-title" data-i18n="console.colors">配色</div>
         <div class="legend" id="legend"></div>
-        <div class="console-note">
-          数据来源：historical-basemaps（CC BY-SA 4.0）· Natural Earth（公有领域）。<br />
-          版图按政权面积排序显示，可切换「更多政权」。面积占比大的区域（跨洲帝国、极地盖帽）
-          会自动淡显，勾「隐藏巨型区域」可完全不画。能量弧为装饰性特效，不代表史实路线。
-        </div>
+        <div class="console-note" data-i18n="console.note"></div>
       </div>
     </aside>
 
     <aside class="hud hud-events" id="eventsPanel" hidden>
       <button class="events-toggle" id="eventsToggle" type="button" aria-expanded="true">
-        <span class="events-title">大事记</span>
+        <span class="events-title" data-i18n="events.title">大事记</span>
         <span class="events-era" id="eventsEra">—</span>
         <span class="events-count" id="eventsCount"></span>
       </button>
       <div class="events-list" id="eventsList"></div>
-      <div class="events-note">大事表为人工整理，地名取大致位置；点击条目可定位到地球上的标记。</div>
+      <div class="events-note" data-i18n="events.note">大事表为人工整理，地名取大致位置；点击条目可定位到地球上的标记。</div>
     </aside>
   </div>
 
@@ -107,22 +104,22 @@
   <footer class="hud hud-timeline">
     <div class="timeline-head">
       <div class="tl-stats" id="tlStats">—</div>
-      <div class="tl-hint">拖动滑块穿越时间 · ← → 切换年代 · 空格播放</div>
+      <div class="tl-hint" data-i18n="timeline.hint">拖动滑块穿越时间 · ← → 切换年代 · 空格播放</div>
     </div>
     <div class="slider-wrap">
       <div class="slider-glow" id="sliderGlow"></div>
       <input id="timeline" class="timeline-range" type="range" min="0" max="1" step="1" value="0"
-             aria-label="时间轴：选择年代" />
+             data-i18n-aria="timeline.label" aria-label="时间轴：选择年代" />
       <div class="ticks" id="ticks" aria-hidden="true"></div>
     </div>
     <div class="timeline-controls">
-      <button class="btn" id="btnPrev" type="button" title="上一个年代（←）">‹ 上一段</button>
-      <button class="btn btn-primary" id="btnPlay" type="button" title="播放 / 暂停（空格）">
-        <span class="ico-play" aria-hidden="true"></span><span id="btnPlayLabel">播放</span>
+      <button class="btn" id="btnPrev" type="button" data-i18n="btn.prev" data-i18n-title="btn.prev.title" title="上一个年代（←）">‹ 上一段</button>
+      <button class="btn btn-primary" id="btnPlay" type="button" data-i18n-title="btn.play.title" title="播放 / 暂停（空格）">
+        <span class="ico-play" aria-hidden="true"></span><span id="btnPlayLabel" data-i18n="btn.play">播放</span>
       </button>
-      <button class="btn" id="btnNext" type="button" title="下一个年代（→）">下一段 ›</button>
-      <label class="btn btn-select" title="播放速度">
-        <span>速度</span>
+      <button class="btn" id="btnNext" type="button" data-i18n="btn.next" data-i18n-title="btn.next.title" title="下一个年代（→）">下一段 ›</button>
+      <label class="btn btn-select" data-i18n-title="btn.speed.title" title="播放速度">
+        <span data-i18n="btn.speed">速度</span>
         <select id="speed">
           <option value="2200">0.5×</option>
           <option value="1200" selected>1×</option>
@@ -130,9 +127,9 @@
           <option value="300">4×</option>
         </select>
       </label>
-      <button class="btn" id="btnSpin" type="button" aria-pressed="true" title="自动旋转">自转</button>
-      <button class="btn" id="btnReset" type="button" title="重置视角（R）">重置视角</button>
-      <button class="btn" id="btnFull" type="button" title="全屏（F）">全屏</button>
+      <button class="btn" id="btnSpin" type="button" aria-pressed="true" data-i18n="btn.spin" data-i18n-title="btn.spin.title" title="自动旋转">自转</button>
+      <button class="btn" id="btnReset" type="button" data-i18n="btn.reset" data-i18n-title="btn.reset.title" title="重置视角（R）">重置视角</button>
+      <button class="btn" id="btnFull" type="button" data-i18n="btn.full" data-i18n-title="btn.full.title" title="全屏（F）">全屏</button>
     </div>
   </footer>
 
@@ -145,11 +142,11 @@
   <!-- 载入遮罩 -->
   <div class="boot" id="boot">
     <div class="boot-orb" aria-hidden="true"><span></span><span></span><span></span></div>
-    <div class="boot-title">寰宇纪年</div>
-    <div class="boot-step" id="bootStep">正在初始化三维地球…</div>
+    <div class="boot-title">寰宇纪年 <em>ORBIS CHRONOS</em></div>
+    <div class="boot-step" id="bootStep" data-i18n="boot.init">正在初始化三维地球…</div>
     <div class="boot-bar"><i id="bootBar"></i></div>
-    <div class="boot-note">首次打开需载入约 1.3 MB（引擎 + 贴图 + 版图），之后走浏览器缓存秒开</div>
-    <div class="boot-note boot-note-sub">数据来源：historical-basemaps（CC BY-SA 4.0）· Natural Earth（公有领域）</div>
+    <div class="boot-note" data-i18n="boot.note"></div>
+    <div class="boot-note boot-note-sub" data-i18n="boot.source"></div>
   </div>
 </div>
 
@@ -162,8 +159,14 @@
     document.addEventListener('DOMContentLoaded', function () {
       var s = document.getElementById('bootStep');
       if (s) {
-        s.innerHTML = '请回到文件夹，双击「启动.cmd」或「寰宇纪年」打开本页'
-          + '<br><span style="opacity:.72;font-size:11px">直接打开 index.html 时，浏览器禁止读取本地版图数据</span>';
+        var zh = (navigator.language || 'zh').toLowerCase().indexOf('zh') === 0;
+        s.innerHTML = (zh
+          ? '请回到文件夹，双击「启动.cmd」或「寰宇纪年」打开本页'
+          : 'Open this page through 启动.cmd in the project folder')
+          + '<br><span style="opacity:.72;font-size:11px">'
+          + (zh ? '直接打开 index.html 时，浏览器禁止读取本地版图数据'
+                : 'Browsers block local modules and data reads over file://')
+          + '</span>';
         s.style.color = '#ffc36b';
       }
       var bar = document.getElementById('bootBar');

@@ -5,14 +5,21 @@
 import { ERAS } from './eras.js';
 
 export const EVENT_TYPES = {
-  war: { label: '战争与战役', color: '#ff6b5a' },
-  revolution: { label: '革命与起义', color: '#ffa23d' },
-  dynasty: { label: '王朝兴替', color: '#c08cff' },
-  treaty: { label: '条约与外交', color: '#57e8ff' },
-  explore: { label: '探索与航行', color: '#ffd166' },
-  disaster: { label: '灾害与瘟疫', color: '#9fb4c7' },
-  culture: { label: '文化与科技', color: '#5ce6a8' },
+  war: { label: '战争与战役', labelEn: 'Wars & battles', color: '#ff6b5a' },
+  revolution: { label: '革命与起义', labelEn: 'Revolutions & revolts', color: '#ffa23d' },
+  dynasty: { label: '王朝兴替', labelEn: 'Dynastic change', color: '#c08cff' },
+  treaty: { label: '条约与外交', labelEn: 'Treaties & diplomacy', color: '#57e8ff' },
+  explore: { label: '探索与航行', labelEn: 'Exploration & voyages', color: '#ffd166' },
+  disaster: { label: '灾害与瘟疫', labelEn: 'Disasters & plagues', color: '#9fb4c7' },
+  culture: { label: '文化与科技', labelEn: 'Culture & technology', color: '#5ce6a8' },
 };
+
+/** 事件类型文案（按语言） */
+export function eventTypeLabel(type, lang = 'zh') {
+  const meta = EVENT_TYPES[type];
+  if (!meta) return type;
+  return lang === 'en' ? meta.labelEn || meta.label : meta.label;
+}
 
 let all = null;
 let loading = null;
@@ -29,13 +36,13 @@ export function loadEvents() {
       all = (json.events || []).map((e, i) => ({
         id: `ev-${e.y}-${i}`,
         year: e.y,
-        name: e.n,
-        nameEn: e.en || '',
+        name: e.en || e.n,
+        nameZh: e.n,
+        nameEn: e.en || e.n,
         lat: e.lat,
         lng: e.lng,
         kind: 'event',
         type: e.k,
-        typeLabel: (EVENT_TYPES[e.k] || {}).label || e.k,
         color: (EVENT_TYPES[e.k] || {}).color || '#cfd8e3',
         note: e.note || '',
       }));
@@ -72,6 +79,7 @@ export function eraFlags() {
   return flags;
 }
 
-export function formatEventYear(year) {
+export function formatEventYear(year, lang = 'zh') {
+  if (lang === 'en') return year < 0 ? `${Math.abs(year)} BCE` : `${year}`;
   return year < 0 ? `前 ${Math.abs(year)}` : `${year}`;
 }
