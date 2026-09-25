@@ -37,7 +37,8 @@ const state = {
   timing: {},
   idleHandles: [],
   // 脉冲光环默认关闭：逐帧/逐年代闪烁在播放时很干扰，需要时可在控制台打开
-  layers: { fill: true, stroke: true, labels: true, events: true, rings: false, arcs: true, graticule: true },
+  // hideGiant：跨洲帝国/极地盖帽这类巨型要素默认"淡显"，勾选后完全不绘制
+  layers: { fill: true, stroke: true, labels: true, events: true, rings: false, arcs: true, graticule: true, hideGiant: false },
   nameIndex: null,
   booted: false,
   era: null,
@@ -336,7 +337,11 @@ function buildGraticule() {
 
 function visibleFeatures(data) {
   const cap = state.maxPolitiesAll ? MAX_POLYGONS_ALL : MAX_POLYGONS;
-  return data.features.slice(0, cap);
+  let list = data.features;
+  // 跨洲帝国、环绕极点的"盖帽"这类巨型要素默认淡显（data.js 里按面积降透明度），
+  // 想彻底不画就在这里过滤掉
+  if (state.layers.hideGiant) list = list.filter((f) => !f.giant);
+  return list.slice(0, cap);
 }
 
 function applyEraData(data, era) {
@@ -892,6 +897,7 @@ function buildSwitches() {
     ['rings', '脉冲光环（闪烁）', () => renderMapLayers()],
     ['arcs', '能量弧（装饰）', () => renderMapLayers()],
     ['graticule', '经纬网', () => globe.pathsData(state.layers.graticule ? buildGraticule() : [])],
+    ['hideGiant', '隐藏巨型区域', () => loadEra(currentEra()).then((data) => applyEraData(data, currentEra()))],
   ];
   $('layerSwitches').innerHTML = defs
     .map(([key, label]) => `<label class="switch"><span>${label}</span><input type="checkbox" data-layer="${key}" ${state.layers[key] ? 'checked' : ''}><span class="track"></span></label>`)

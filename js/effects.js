@@ -184,10 +184,10 @@ export function createEffects(canvas, options = {}) {
     ring(c.x, c.y, r * 1.19, { stroke: paint('violet', 0.38), width: 1.2, dash: [2, 10], rotation: rot * 2.1 });
     ring(c.x, c.y, r * 1.5, { stroke: paint('cyan', 0.2), width: 1, dash: [26, 60], rotation: -rot * 1.4 });
 
-    // 扫描弧（顺时针扫过）
+    // 扫描弧（顺时针扫过）——比起初的版本压低了不少，避免像一条彩色带子糊在地球上
     const scan = (time * 0.55) % TAU;
-    ring(c.x, c.y, r * 1.08, { stroke: paint('amber', 0.62), width: 1.6, start: scan, end: scan + 0.5 });
-    ring(c.x, c.y, r * 1.08, { stroke: paint('amber', 0.16), width: 6, start: scan, end: scan + 0.16 });
+    ring(c.x, c.y, r * 1.08, { stroke: paint('amber', 0.34), width: 1.4, start: scan, end: scan + 0.5 });
+    ring(c.x, c.y, r * 1.08, { stroke: paint('amber', 0.09), width: 5, start: scan, end: scan + 0.16 });
 
     // 四角定位括号
     const br = r * 1.52;
@@ -210,9 +210,9 @@ export function createEffects(canvas, options = {}) {
       ctx.restore();
     }
 
-    // 前景粒子外壳
+    // 前景粒子外壳：贴在地球边缘的一圈微光（刻意压得很淡，不要变成蓝色光环）
     const pulse = 0.5 + 0.5 * Math.sin(time * 1.4);
-    ring(c.x, c.y, r * 1.02, { stroke: paint('cyan', 0.1 + pulse * 0.12), width: 6 });
+    ring(c.x, c.y, r * 1.02, { stroke: paint('cyan', 0.05 + pulse * 0.06), width: 5 });
   }
 
   function drawOrbiters(o, dt) {

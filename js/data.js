@@ -39,10 +39,20 @@ function toneOf(cls, modern = false) {
   return CLASS_TONE[cls] || CLASS_TONE.other;
 }
 
-/** 取最大多边形的外接矩形中心作为标签/脉冲锚点 */
+/**
+ * 取最大多边形的外接矩形：既当标签锚点，也用来判断"这是个跨越半个地球的巨型要素"。
+ * 跨 300° 以上经度、且整体位于高纬度（或南半球高纬）的多边形是环绕极点的"盖帽"，
+ * 一旦上色就会像罩子扣在地球顶上，需要特殊处理。
+ */
 function anchorOf(polys) {
   let best = null;
   let bestArea = -1;
+  let minXAll = 180;
+  let maxXAll = -180;
+  let minYAll = 90;
+  let maxYAll = -90;
+  let poleCap = false;
+
   for (const rings of polys) {
     const r = rings[0];
     let minX = 180;
@@ -55,13 +65,35 @@ function anchorOf(polys) {
       if (y < minY) minY = y;
       if (y > maxY) maxY = y;
     }
-    const area = (maxX - minX) * (maxY - minY);
+    if (minX < minXAll) minXAll = minX;
+    if (maxX > maxXAll) maxXAll = maxX;
+    if (minY < minYAll) minYAll = minY;
+    if (maxY > maxYAll) maxYAll = maxY;
+    const spanLng = maxX - minX;
+    if (spanLng > 300 && (minY > 50 || maxY < -50)) poleCap = true;
+
+    const area = spanLng * (maxY - minY);
     if (area > bestArea) {
       bestArea = area;
       best = { lat: (minY + maxY) / 2, lng: (minX + maxX) / 2 };
     }
   }
-  return best || { lat: 0, lng: 0 };
+
+  return {
+    anchor: best || { lat: 0, lng: 0 },
+    spanLng: maxXAll - minXAll,
+    spanLat: maxYAll - minYAll,
+    poleCap,
+  };
+}
+
+/**
+ * 面积越大，填充越淡：跨洲帝国那种"铺满半个可见半球"的色块，
+ * 在高不透明度下看起来就像一层彩色罩子盖住地球。
+ * 描边保持得比较清楚，这样疆域轮廓仍然可读。
+ */
+function giantFactor(share) {
+  return Math.max(0.26, 1 - (share - 0.02) * 3.8);
 }
 
 function decorate(raw, modern, year) {
@@ -72,6 +104,16 @@ function decorate(raw, modern, year) {
     : PALETTE_HUES[hash(raw.n) % PALETTE_HUES.length];
   const hue = (baseHue + (hash(raw.n) % 17) - 8 + 360) % 360;
   const zh = modern ? raw.n : zhName(raw.n);
+
+  const box = anchorOf(raw.g);
+  const share = raw.shr || 0;
+  // 巨型 = 面积占比高，或者环绕极点的"盖帽"（后者哪怕面积不大，也会在极地上扣一个圆盘）
+  const giant = share >= 0.08 || box.poleCap;
+  const factor = giant ? giantFactor(share) : 1;
+  const alpha = tone.alpha * factor * (box.poleCap ? 0.42 : 1);
+  const strokeAlpha = giant ? 0.72 : 0.85;
+  const sideAlpha = (giant ? 0.22 : 0.9) * (box.poleCap ? 0.6 : 1);
+
   const feature = {
     id: `${raw.n}#${hash(raw.n) % 9973}`,
     name: raw.n,
@@ -84,22 +126,24 @@ function decorate(raw, modern, year) {
     partOf: raw.p || '',
     wiki: raw.w || (modern && raw.e ? `https://en.wikipedia.org/wiki/${encodeURIComponent(String(raw.e).replace(/ /g, '_'))}` : ''),
     rel: raw.rel || 0,
-    share: raw.shr || 0,
+    share,
     cls,
     lat: 0,
     lng: 0,
-    color: `hsla(${hue}, ${tone.s}%, ${tone.l}%, ${tone.alpha})`,
+    giant,
+    poleCap: box.poleCap,
+    spanLng: box.spanLng,
+    color: `hsla(${hue}, ${tone.s}%, ${tone.l}%, ${alpha.toFixed(3)})`,
     colorHover: `hsla(${hue}, ${Math.min(100, tone.s + 14)}%, ${Math.min(88, tone.l + 18)}%, 0.95)`,
-    stroke: `hsla(${hue}, 96%, 76%, 0.85)`,
+    stroke: `hsla(${hue}, 96%, 76%, ${strokeAlpha})`,
     strokeHover: '#ffffff',
-    side: `hsla(${hue}, ${tone.s}%, 30%, 0.9)`,
+    side: `hsla(${hue}, ${tone.s}%, 30%, ${sideAlpha.toFixed(3)})`,
     hue,
     geometry: null,
   };
   feature.geometry = { type: 'MultiPolygon', coordinates: raw.g };
-  const a = anchorOf(raw.g);
-  feature.lat = a.lat;
-  feature.lng = a.lng;
+  feature.lat = box.anchor.lat;
+  feature.lng = box.anchor.lng;
   return feature;
 }
 
