@@ -82,6 +82,13 @@ export function createEffects(canvas, options = {}) {
     amber: [255, 195, 107],
   };
 
+  // 外圈刻度：单位方向只算一次，逐帧只做一次旋转（省掉 72 次三角函数）
+  const TICK_COUNT = 72;
+  const TICKS = Array.from({ length: TICK_COUNT }, (_, i) => {
+    const a = (i / TICK_COUNT) * TAU;
+    return { cos: Math.cos(a), sin: Math.sin(a), long: i % 6 === 0 };
+  });
+
   function paint(color, alpha) {
     const c = COLOR[color] || COLOR.cyan;
     return `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${alpha})`;
@@ -162,20 +169,25 @@ export function createEffects(canvas, options = {}) {
     const py = pointer.y * 8;
     const c = { x: cx + px, y: cy + py };
 
-    // 外圈刻度环
+    // 外圈刻度环：把 72 根刻度合并成两条路径（长/短各一条），
+    // 逐帧 72 次 beginPath+stroke 换成 2 次，角度的三角函数也只算一次旋转量
     const rOuter = r * 1.34;
     ring(c.x, c.y, rOuter, { stroke: paint('cyan', 0.16), width: 1 });
     const rot = time * 0.06;
-    const segs = 72;
-    for (let i = 0; i < segs; i += 1) {
-      const a = (i / segs) * TAU + rot;
-      const long = i % 6 === 0;
-      const inner = rOuter + 2;
-      const outer = rOuter + (long ? 11 : 5);
+    const inner = rOuter + 2;
+    const cr = Math.cos(rot);
+    const sr = Math.sin(rot);
+    for (const pass of [0, 1]) {
       ctx.beginPath();
-      ctx.moveTo(c.x + Math.cos(a) * inner, c.y + Math.sin(a) * inner);
-      ctx.lineTo(c.x + Math.cos(a) * outer, c.y + Math.sin(a) * outer);
-      ctx.strokeStyle = paint('cyan', long ? 0.5 : 0.24);
+      for (let i = pass; i < TICK_COUNT; i += 2) {
+        const t = TICKS[i];
+        const cosA = t.cos * cr - t.sin * sr;
+        const sinA = t.sin * cr + t.cos * sr;
+        const outer = rOuter + (t.long ? 11 : 5);
+        ctx.moveTo(c.x + cosA * inner, c.y + sinA * inner);
+        ctx.lineTo(c.x + cosA * outer, c.y + sinA * outer);
+      }
+      ctx.strokeStyle = paint('cyan', pass === 0 ? 0.5 : 0.24);
       ctx.lineWidth = 1;
       ctx.stroke();
     }
@@ -189,26 +201,27 @@ export function createEffects(canvas, options = {}) {
     ring(c.x, c.y, r * 1.08, { stroke: paint('amber', 0.34), width: 1.4, start: scan, end: scan + 0.5 });
     ring(c.x, c.y, r * 1.08, { stroke: paint('amber', 0.09), width: 5, start: scan, end: scan + 0.16 });
 
-    // 四角定位括号
+    // 四角定位括号（四条折线一次性描边）
     const br = r * 1.52;
     const len = r * 0.11;
+    ctx.beginPath();
     for (let k = 0; k < 4; k += 1) {
       const a = k * (TAU / 4) + Math.PI / 4;
-      const bx = c.x + Math.cos(a) * br;
-      const by = c.y + Math.sin(a) * br;
-      ctx.save();
-      ctx.translate(bx, by);
-      ctx.rotate(a);
-      ctx.strokeStyle = paint('cyan', 0.6);
-      ctx.lineWidth = 1.4;
-      ctx.beginPath();
-      ctx.moveTo(-len, -len);
-      ctx.lineTo(-len * 0.35, -len);
-      ctx.moveTo(-len, -len);
-      ctx.lineTo(-len, -len * 0.35);
-      ctx.stroke();
-      ctx.restore();
+      const ux = Math.cos(a);
+      const uy = Math.sin(a);
+      const bx = c.x + ux * br;
+      const by = c.y + uy * br;
+      // 用「半径方向 u」与「切向 n」两张量拼出角标，省掉 save/rotate/restore
+      const nx = -uy;
+      const ny = ux;
+      ctx.moveTo(bx + ux * len, by + uy * len);
+      ctx.lineTo(bx + ux * len - nx * len * 0.65, by + uy * len - ny * len * 0.65);
+      ctx.moveTo(bx + ux * len, by + uy * len);
+      ctx.lineTo(bx + ux * len - ux * len * 0.65, by + uy * len - uy * len * 0.65);
     }
+    ctx.strokeStyle = paint('cyan', 0.6);
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
 
     // 前景粒子外壳：贴在地球边缘的一圈微光（刻意压得很淡，不要变成蓝色光环）
     const pulse = 0.5 + 0.5 * Math.sin(time * 1.4);
@@ -323,6 +336,24 @@ export function createEffects(canvas, options = {}) {
     /** 拾取政权时的小脉冲 */
     ping(x, y) {
       bursts.push({ x, y, r0: 6, r1: 120, t: 0, dur: 620, hue: 'amber' });
+    },
+    /** 外部（窗口尺寸变化后）主动重算画布尺寸 */
+    resize,
+    /** 性能自检：同步连续绘制 n 帧，返回每帧耗时（毫秒） */
+    bench(n = 60) {
+      const orbit = getOrbit();
+      const t0 = performance.now();
+      for (let i = 0; i < n; i += 1) {
+        time += 1 / 60;
+        ctx.clearRect(0, 0, w, h);
+        drawStars(16);
+        if (orbit && orbit.r > 20) {
+          drawHudRings(orbit);
+          drawOrbiters(orbit, 16);
+        }
+        drawStreaks(16);
+      }
+      return (performance.now() - t0) / n;
     },
     dispose() {
       disposed = true;

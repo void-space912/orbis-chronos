@@ -24,6 +24,8 @@
     "textures:optimize": "python scripts/optimize_textures.py --force",
     "verify": "node scripts/verify.mjs 1900 1500 bc1000 2025",
     "perf": "node scripts/perf.mjs",
+    "smooth": "node scripts/smooth.mjs",
+    "langcheck": "node scripts/langcheck.mjs",
     "tune": "node scripts/tune.mjs",
     "measure": "node scripts/measure-data.mjs 1900 1492"
   },

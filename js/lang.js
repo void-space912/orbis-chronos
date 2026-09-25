@@ -113,6 +113,7 @@ export const DICT = {
     'tooltip.share': '占比 {pct}%',
     'legend.empty': '暂无数据',
 
+    'perf.tip': '当前设备帧率偏低（中位 {ms} ms/帧）：可在左侧控制台关掉「边界描边」或「更多政权」，并把播放速度降到 0.5×。',
     'giant.hidden': '巨型区域已隐藏',
   },
 
@@ -215,6 +216,7 @@ export const DICT = {
     'tooltip.share': '{pct}% of mapped land',
     'legend.empty': 'No data',
 
+    'perf.tip': 'This device is rendering slowly (median {ms} ms/frame). Try turning off "Borders" or "More polities" in the console, and drop the playback speed to 0.5×.',
     'giant.hidden': 'Giant areas hidden',
   },
 };

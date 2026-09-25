@@ -18,6 +18,13 @@ const BASE_ALTITUDE = 0.008;
 const HOVER_ALTITUDE = 0.05;
 const MAX_POLYGONS = 300;
 const MAX_POLYGONS_ALL = 500;
+// 高分屏（dpr 2）时画布像素是 4 倍，帧率掉得最狠。限制到 1.5 后肉眼几乎无差别，
+// 但像素量直接少掉约 44%
+const MAX_PIXEL_RATIO = 1.5;
+// 占比低于 0.4% 的小地块不描边：省下约一成多的绘制调用，视觉上几乎看不出
+const STROKE_MIN_SHARE = 0.004;
+// 版图升降过渡时长；拖动时间轴时临时设为 0（快速滑动时不做动画反而更顺）
+const TRANSITION_MS = 720;
 
 const TEXTURE = {
   day: 'vendor/img/earth-blue-marble.jpg',
@@ -151,6 +158,7 @@ function revealScene() {
   prefetchNeighbours();
   loadNameIndex();
   loadEventIndex();
+  checkFrameRate();
 }
 
 /** 首屏之后载入事件表（16 KB）：载入后补上标记与面板 */
@@ -170,8 +178,7 @@ function loadEventIndex() {
     });
 }
 
-/** 首屏之后追加的贴图与特效（不阻塞地球出现） */
-function enhanceTextures() {
+/** 首屏之后追加的贴图与特效（不阻塞地球出现） */function enhanceTextures() {
   try {
     if (!globe.bumpImageUrl()) globe.bumpImageUrl(TEXTURE.bump);
   } catch { /* 忽略 */ }
@@ -205,6 +212,40 @@ function idle(fn, timeout = 1200) {
   }
 }
 
+/**
+ * 帧率自检：跑一小段采样，若中位帧时间明显偏高（低于约 20 fps），
+ * 就在页面上给一条可操作的建议（一次性、十来秒后自动消失）。
+ * 只提示、不擅自改动用户的图层设置。
+ */
+function checkFrameRate() {
+  const samples = [];
+  let last = performance.now();
+  let count = 0;
+  const started = performance.now();
+  const tick = () => {
+    const now = performance.now();
+    samples.push(now - last);
+    last = now;
+    count += 1;
+    // 采够 24 帧就够判断了；如果设备特别慢，最多等 8 秒也要给结论
+    if (count < 24 && now - started < 8000) {
+      requestAnimationFrame(tick);
+      return;
+    }
+    samples.sort((a, b) => a - b);
+    const median = samples[Math.floor(samples.length / 2)];
+    state.timing.medianFrameMs = Number(median.toFixed(1));
+    if (median < 50) return; // 20 fps 以上就不打扰
+    const notice = document.createElement('div');
+    notice.className = 'hud hud-notice';
+    notice.dataset.role = 'perf-tip';
+    notice.textContent = t('perf.tip', { ms: Math.round(median) });
+    document.getElementById('app').appendChild(notice);
+    setTimeout(() => notice.remove(), 14000);
+  };
+  setTimeout(() => requestAnimationFrame(tick), 2500);
+}
+
 /* 多边形样式 accessor：只定义一次，内部按当前状态求值（避免每次换年代重新 setter） */
 
 function polygonCap(f) {
@@ -214,7 +255,24 @@ function polygonCap(f) {
 
 function polygonStroke(f) {
   if (!state.layers.stroke) return null;
-  return state.hoverId === f.id ? '#ffffff' : f.stroke;
+  if (state.hoverId === f.id) return '#ffffff';
+  // 小地块不画描边（它们的轮廓在球面上本来就看不见，却各占一次绘制调用）
+  if (f.share < STROKE_MIN_SHARE) return null;
+  return f.stroke;
+}
+
+/** 把渲染分辨率限制在 MAX_PIXEL_RATIO 以内（globe.gl 默认最高按 dpr=2 渲染） */
+function capPixelRatio() {
+  if (!globe) return;
+  try {
+    const renderer = globe.renderer();
+    const want = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
+    if (Math.abs(renderer.getPixelRatio() - want) > 0.01) {
+      renderer.setPixelRatio(want);
+      renderer.setSize($('stage').clientWidth, $('stage').clientHeight, false);
+      state.pixelRatio = want;
+    }
+  } catch { /* 忽略 */ }
 }
 
 function polygonHeight(f) {
@@ -232,7 +290,7 @@ function createGlobe() {
     .showAtmosphere(true)
     .atmosphereColor('#5fd8ff')
     .atmosphereAltitude(0.24)
-    .polygonsTransitionDuration(1000)
+    .polygonsTransitionDuration(TRANSITION_MS)
     .polygonAltitude(polygonHeight)
     .polygonCapCurvatureResolution(6)
     .polygonSideColor((f) => f.side)
@@ -302,10 +360,14 @@ function createGlobe() {
   fx = createEffects($('fx'), { getOrbit: globeSilhouette });
 
   // 调试句柄：便于在浏览器控制台或自动化测试中检查运行时状态
-  window.__orbis = { globe, state, requestEra, ERAS };
+  window.__orbis = { globe, state, requestEra, ERAS, fx: () => fx, capPixelRatio };
+
+  capPixelRatio();
 
   window.addEventListener('resize', debounce(() => {
     globe.width($('stage').clientWidth).height($('stage').clientHeight);
+    capPixelRatio();
+    fx && fx.resize();
   }, 160));
 
   globe.onGlobeReady(() => {
@@ -999,8 +1061,21 @@ function bindUi() {
 
   $('timeline').addEventListener('input', (e) => {
     stopPlay();
+    // 拖动过程中关掉升降动画：快速滑动时每换一个年代都重播动画反而顿
+    if (!state.draggingTimeline) {
+      state.draggingTimeline = true;
+      globe.polygonsTransitionDuration(0);
+    }
     requestEra(Number(e.target.value));
   });
+  const endTimelineDrag = () => {
+    if (!state.draggingTimeline) return;
+    state.draggingTimeline = false;
+    globe.polygonsTransitionDuration(TRANSITION_MS);
+  };
+  $('timeline').addEventListener('change', endTimelineDrag);
+  window.addEventListener('pointerup', endTimelineDrag);
+  window.addEventListener('pointercancel', endTimelineDrag);
 
   $('btnPrev').addEventListener('click', () => step(-1));
   $('btnNext').addEventListener('click', () => step(1));
