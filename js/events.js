@@ -20,7 +20,7 @@ let loading = null;
 export function loadEvents() {
   if (all) return Promise.resolve(all);
   if (loading) return loading;
-  loading = fetch('data/events.json', { cache: 'force-cache' })
+  loading = fetch('data/events.json', { cache: 'force-cache', credentials: 'omit' })
     .then((r) => {
       if (!r.ok) throw new Error(`事件数据载入失败（HTTP ${r.status}）`);
       return r.json();

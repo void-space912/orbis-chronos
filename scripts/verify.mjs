@@ -51,6 +51,22 @@ async function main() {
     return { count: urls.length, bad };
   });
 
+  // 首屏数据是否只下载了一次（内联预取 Promise 应被复用）
+  report.checks.preload = await page.evaluate(() => {
+    const stat = (url) => {
+      const list = performance.getEntriesByType('resource').filter((e) => e.name === url);
+      return { file: url.split('/').slice(-2).join('/'), requests: list.length, bytes: list.reduce((s, e) => s + (e.transferSize || 0), 0) };
+    };
+    const img = document.querySelector('link[rel="preload"][as="image"]');
+    const era = window.__orbis && window.__orbis.state && window.__orbis.state.era;
+    const file = era && era.key === '2025' ? 'data/modern.json' : `data/eras/${era ? era.key : '1900'}.json`;
+    return {
+      eraData: stat(new URL(file, location.href).href),
+      dayTexture: img ? stat(img.href) : null,
+      prefetchUsed: Boolean(window.__eraPrefetch && window.__eraPrefetch.file === file),
+    };
+  });
+
   report.checks.fx = await page.evaluate(() => {
     const c = document.getElementById('fx');
     const ctx = c.getContext('2d');
@@ -157,15 +173,36 @@ async function main() {
 
   await page.mouse.click(target.x, target.y);
   await sleep(1600);
-  report.checks.click = {
-    detailShown: await page.$eval('#detailPanel', (el) => !el.hidden).catch(() => null),
-    name: await page.$eval('#detailName', (el) => el.textContent).catch(() => null),
-    sub: await page.$eval('#detailSub', (el) => el.textContent).catch(() => null),
-    type: await page.$eval('#detailType', (el) => el.textContent).catch(() => null),
-    share: await page.$eval('#detailShare', (el) => el.textContent).catch(() => null),
-    span: await page.$eval('#detailSpan', (el) => el.textContent).catch(() => null),
-  };
+  report.checks.click = await page.evaluate(() => {
+    const rows = [...document.querySelectorAll('#detailGrid > div')].map((d) => ({
+      k: d.querySelector('dt')?.textContent.trim(),
+      v: d.querySelector('dd')?.textContent.trim(),
+    }));
+    const links = [...document.querySelectorAll('#detailLinks a')].map((a) => ({
+      label: a.textContent.trim(),
+      href: a.getAttribute('href'),
+      target: a.getAttribute('target'),
+      external: (() => { try { return new URL(a.href, location.href).host !== location.host; } catch { return false; } })(),
+    }));
+    return {
+      detailShown: !document.getElementById('detailPanel').hidden,
+      name: document.getElementById('detailName').textContent,
+      sub: document.getElementById('detailSub').textContent,
+      rows,
+      links,
+      deadLinks: links.filter((l) => !l.href || l.href === '#' || !/^https?:\/\//.test(l.href)).length,
+      samePageLinks: links.filter((l) => !l.external).length,
+      eventChips: [...document.querySelectorAll('#detailEvents .detail-chip[data-event]')].map((b) => b.textContent.trim()),
+      source: document.getElementById('detailSource').textContent,
+      foot: document.getElementById('detailFoot').textContent.slice(0, 80),
+    };
+  });
   await page.screenshot({ path: path.join(OUT, 'click.png') });
+
+  // 档案卡里的链接必须指向外部站点，且不能是当前页
+  if (report.checks.click.deadLinks) report.logs.push(`[check] 档案卡存在 ${report.checks.click.deadLinks} 个无效链接`);
+  if (report.checks.click.samePageLinks) report.logs.push(`[check] 档案卡存在 ${report.checks.click.samePageLinks} 个指向本页的链接`);
+  if (!report.checks.click.links.length) report.logs.push('[check] 档案卡没有任何延伸资料链接');
 
   report.checks.scrub = await page.evaluate(async () => {
     const o = window.__orbis;
@@ -209,13 +246,21 @@ async function main() {
     await page.screenshot({ path: path.join(OUT, 'events.png') });
   }
 
-  // 播放流畅度：连续播放若干年代，采样每帧间隔
+  // 播放流畅度：先走几个年代把缓存焐热（模拟真实观看时的稳态），再采样每帧间隔
   report.checks.playback = await page.evaluate(async () => {
     const o = window.__orbis;
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     const start = o.ERAS.findIndex((e) => e.key === '1200');
     o.requestEra(start);
-    await new Promise((r) => setTimeout(r, 2500));
+    await wait(2500);
+    for (const k of ['1279', '1400', '1492']) {
+      o.requestEra(o.ERAS.findIndex((e) => e.key === k));
+      await wait(1200);
+    }
+    o.requestEra(start);
+    await wait(2000);
     const frames = [];
+    const steps = [];
     let last = performance.now();
     let longTasks = 0;
     let observer = null;
@@ -230,11 +275,16 @@ async function main() {
       const now = performance.now();
       frames.push(now - last);
       last = now;
+      if (o.state.timing.lastStepMs && o.state.timing.lastStepAt !== o.state.era.key) {
+        o.state.timing.lastStepAt = o.state.era.key;
+        steps.push({ era: o.state.era.key, ms: o.state.timing.lastStepMs, cached: o.state.timing.lastStepCached });
+      }
     }
     document.getElementById('btnPlay').click();
     if (observer) observer.disconnect();
     frames.sort((a, b) => a - b);
     const pct = (p) => Number(frames[Math.min(frames.length - 1, Math.floor(frames.length * p))].toFixed(1));
+    const stepMs = steps.map((s) => s.ms).sort((a, b) => a - b);
     return {
       frames: frames.length,
       medianMs: pct(0.5),
@@ -243,6 +293,9 @@ async function main() {
       over33ms: frames.filter((f) => f > 33).length,
       over100ms: frames.filter((f) => f > 100).length,
       longTasks,
+      steps,
+      stepMedianMs: stepMs.length ? stepMs[Math.floor(stepMs.length / 2)] : null,
+      stepMaxMs: stepMs.length ? stepMs[stepMs.length - 1] : null,
       endEra: o.state.era.key,
     };
   });

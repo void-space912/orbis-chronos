@@ -727,22 +727,107 @@ function updateDetailForSelection() {
     return;
   }
   panel.hidden = false;
-  $('detailKicker').textContent = f.cls === 'hunting' || f.cls === 'farming' || f.cls === 'culture' ? '文化区域档案' : '政权档案';
+
+  const era = currentEra();
+  const rank = state.features.indexOf(f) + 1;
+  const total = state.features.length;
+  const isCulture = f.cls === 'hunting' || f.cls === 'farming' || f.cls === 'culture';
+
+  $('detailKicker').textContent = isCulture ? '文化区域档案' : '政权档案';
   $('detailName').textContent = f.nameZh;
-  $('detailSub').textContent = f.translated || f.nameEn === f.nameZh ? f.nameEn : '';
-  $('detailType').textContent = f.typeZh;
-  $('detailShare').textContent = `${(f.share * 100).toFixed(2)}%`;
-  $('detailShare').title = '占本年代已绘版图面积的比例（估算值）';
-  $('detailSubject').textContent = f.subject && f.subject !== f.name ? f.subject : '—';
-  const span = spanOf(f.name);
-  $('detailSpan').textContent = span;
-  const link = $('detailLink');
-  if (f.wiki) {
-    link.href = f.wiki;
-    link.hidden = false;
+  $('detailSub').textContent = f.nameEn && f.nameEn !== f.nameZh ? f.nameEn : '';
+
+  const subject = f.subject && f.subject !== f.name ? f.subject : '';
+  const partOf = f.partOf && f.partOf !== f.name && f.partOf !== f.subject ? f.partOf : '';
+  const rows = [
+    ['分类', labelOf(f.cls)],
+    ['数据集类型', f.type || '未标注'],
+    ['版图占比', `${(f.share * 100).toFixed(2)}%`],
+    ['本年代排名', `第 ${rank} / ${total} 大`],
+    ['近似中心', formatCoord(f.lat, f.lng)],
+    ['存在年代', spanOf(f.name)],
+  ];
+  if (subject) rows.push(['归属', subject]);
+  if (partOf) rows.push(['所属', partOf]);
+  $('detailGrid').innerHTML = rows
+    .map(([k, v]) => `<div><dt>${escapeHtml(k)}</dt><dd title="${escapeHtml(v)}">${escapeHtml(v)}</dd></div>`)
+    .join('');
+
+  // 本年代收录的大事（与大事记面板联动，点一下就飞过去）
+  const events = state.detailEventsAll ? state.eraEvents : state.eraEvents.slice(0, 4);
+  const eventsBlock = $('detailEventsBlock');
+  if (events.length) {
+    eventsBlock.hidden = false;
+    $('detailEvents').innerHTML = events
+      .map((e) => `<button type="button" class="detail-chip" data-event="${e.id}" style="--ev:${e.color}">`
+        + `<b>${formatEventYear(e.year)}</b>${escapeHtml(e.name)}</button>`)
+      .join('')
+      + (state.eraEvents.length > 4
+        ? `<button type="button" class="detail-chip ghost" data-more-events="1">${state.detailEventsAll ? '收起' : `全部 ${state.eraEvents.length} 条`} →</button>`
+        : '');
   } else {
-    link.hidden = true;
+    eventsBlock.hidden = true;
+    $('detailEvents').innerHTML = '';
   }
+
+  // 延伸资料：数据集的原始链接（若有）+ 中英文维基检索入口，永远有可用链接
+  const links = [];
+  const datasetUrl = sanitizeUrl(f.wiki);
+  if (datasetUrl) links.push({ href: datasetUrl, label: '数据集原始链接 ↗', ghost: false });
+  const zhUrl = wikiSearch('zh', f.nameZh);
+  if (zhUrl) links.push({ href: zhUrl, label: '中文维基检索 ↗', ghost: true });
+  const enUrl = wikiSearch('en', f.nameEn || f.name);
+  if (enUrl) links.push({ href: enUrl, label: '英文维基检索 ↗', ghost: true });
+  const linksBlock = $('detailLinksBlock');
+  if (links.length) {
+    linksBlock.hidden = false;
+    $('detailLinks').innerHTML = links
+      .map((l) => `<a class="detail-link${l.ghost ? ' ghost' : ''}" href="${escapeHtml(l.href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(l.label)}</a>`)
+      .join('');
+  } else {
+    linksBlock.hidden = true;
+    $('detailLinks').innerHTML = '';
+  }
+
+  $('detailSource').textContent = era.modern
+    ? `数据来源：Natural Earth 110m adm-0 countries（公有领域）· ${era.label}`
+    : `数据来源：historical-basemaps（CC BY-SA 4.0）· ${era.label}快照`;
+
+  const foot = [];
+  foot.push(isCulture ? '该要素在数据集中是文化圈／考古学文化，不是现代意义上的国家。' : '');
+  foot.push(`近似中心为数据内最大多边形外接矩形的中心（${formatCoord(f.lat, f.lng)}），面积占比按经纬度估算，均非测绘精度。`);
+  if (!f.translated) foot.push('名称保留数据集原文（本项目暂无对应中文译名）。');
+  else if (!era.modern) foot.push('中文译名为本项目整理，可能与学术译名存在差异。');
+  $('detailFoot').textContent = foot.filter(Boolean).join(' ');
+
+  state.detailLinkCount = links.length;
+}
+
+/** 纬度/经度转成 57.2°N · 96.4°E 这样的可读形式 */
+function formatCoord(lat, lng) {
+  const ns = lat >= 0 ? 'N' : 'S';
+  const ew = lng >= 0 ? 'E' : 'W';
+  return `${Math.abs(lat).toFixed(1)}°${ns} · ${Math.abs(lng).toFixed(1)}°${ew}`;
+}
+
+/**
+ * 只接受 http(s) 链接；空值、锚点（如 "#"）、相对路径都会被拒绝。
+ * 之前卡片上的「查看资料」在数据没有链接时 href 仍是 "#"，
+ * 点击就会用新标签页打开同一个页面——这个判断就是为了堵住那种情况。
+ */
+function sanitizeUrl(raw) {
+  const s = String(raw || '').trim();
+  if (!s || s === '#' || s.startsWith('#')) return '';
+  if (/^https?:\/\//i.test(s)) return s;
+  if (/^\/\//.test(s)) return `https:${s}`;
+  if (/^[\w.-]+\.[a-z]{2,}(\/|$)/i.test(s)) return `https://${s}`;
+  return '';
+}
+
+function wikiSearch(lang, term) {
+  const t = String(term || '').trim();
+  if (!t) return '';
+  return `https://${lang}.wikipedia.org/w/index.php?search=${encodeURIComponent(t)}`;
 }
 
 function spanOf(name) {
@@ -789,7 +874,7 @@ function positionTooltip() {
 
 async function loadNameIndex() {
   try {
-    const res = await fetch('data/name-index.json');
+    const res = await fetch('data/name-index.json', { credentials: 'omit' });
     if (!res.ok) return;
     state.nameIndex = await res.json();
     updateDetailForSelection();
@@ -875,6 +960,21 @@ function bindUi() {
     eventsList.addEventListener('click', (e) => {
       const row = e.target.closest('.event-row');
       if (row) focusEvent(row.dataset.event);
+    });
+  }
+  // 档案卡内的大事条目：同样可点，外加"全部/收起"
+  const detailEvents = $('detailEvents');
+  if (detailEvents) {
+    detailEvents.addEventListener('click', (e) => {
+      const chip = e.target.closest('[data-event]');
+      if (chip) {
+        focusEvent(chip.dataset.event);
+        return;
+      }
+      if (e.target.closest('[data-more-events]')) {
+        state.detailEventsAll = !state.detailEventsAll;
+        updateDetailForSelection();
+      }
     });
   }
   const eventsToggle = $('eventsToggle');

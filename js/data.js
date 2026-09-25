@@ -110,7 +110,15 @@ function prepare(rawFile, { modern = false } = {}) {
 }
 
 async function fetchEra(era) {
-  const res = await fetch(eraFile(era), { cache: 'force-cache' });
+  const url = eraFile(era);
+  // index.html 里的内联脚本已经在解析阶段就发起了当前年代的请求，
+  // 这里直接复用那个 Promise，避免同一份数据下载两次
+  const pre = window.__eraPrefetch;
+  if (pre && pre.file === url && pre.promise) {
+    const data = await pre.promise;
+    if (data) return data;
+  }
+  const res = await fetch(url, { cache: 'force-cache', credentials: 'omit' });
   if (!res.ok) throw new Error(`载入 ${era.key} 数据失败（HTTP ${res.status}）`);
   return res.json();
 }
