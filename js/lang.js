@@ -18,6 +18,7 @@ export const DICT = {
     'app.title': '寰宇纪年 · 历史版图三维地球',
     'app.tagline': '三维历史版图地球 · 公元前 10000 年 — 2025 年',
     'lang.switch': '语言',
+    'lang.title': '界面语言',
 
     'boot.init': '正在初始化三维地球…',
     'boot.globe': '正在构建三维地球…',
@@ -119,6 +120,7 @@ export const DICT = {
     'app.title': 'Orbis Chronos · 3D Historical Atlas Globe',
     'app.tagline': '3D historical border globe · 10,000 BCE — 2025 CE',
     'lang.switch': 'Language',
+    'lang.title': 'Interface language',
 
     'boot.init': 'Starting up the 3D globe…',
     'boot.globe': 'Building the globe…',

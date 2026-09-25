@@ -37,7 +37,7 @@
     <div class="stage-scanlines" aria-hidden="true"></div>
   </div>
 
-  <!-- 顶部标识 + 语言切换 -->
+  <!-- 顶部标识 -->
   <header class="hud hud-brand">
     <div class="brand-mark" aria-hidden="true">
       <span class="mark-ring"></span>
@@ -47,8 +47,13 @@
       <h1>寰宇纪年 <em>ORBIS CHRONOS</em></h1>
       <p data-i18n="app.tagline">三维历史版图地球 · 公元前 10000 年 — 2025 年</p>
     </div>
-    <div class="lang-switch" id="langSwitch" role="group" data-i18n-aria="lang.switch" aria-label="语言"></div>
   </header>
+
+  <!-- 语言切换（独立卡片，放在右上角） -->
+  <aside class="hud hud-lang">
+    <div class="lang-title" data-i18n="lang.title">界面语言</div>
+    <div class="lang-switch" id="langSwitch" role="group" data-i18n-aria="lang.switch" aria-label="语言"></div>
+  </aside>
 
   <!-- 当前纪年 -->
   <section class="hud hud-year" aria-live="polite">
@@ -173,6 +178,22 @@
       if (bar) bar.style.width = '100%';
       var orb = document.querySelector('.boot-orb');
       if (orb) orb.style.opacity = '0.35';
+    });
+  } else {
+    // 兜底：如果浏览器仍在用缓存的旧版脚本（新加的控件渲染不出来），
+    // 就用这段内联脚本给出明确提示，而不是让人以为功能没做
+    window.addEventListener('load', function () {
+      setTimeout(function () {
+        var sw = document.getElementById('langSwitch');
+        if (!sw || sw.children.length > 0) return;
+        var zh = (navigator.language || 'zh').toLowerCase().indexOf('zh') === 0;
+        var notice = document.createElement('div');
+        notice.className = 'hud hud-notice';
+        notice.textContent = zh
+          ? '检测到浏览器仍在用缓存的旧版脚本：按 Ctrl + F5 强制刷新一次即可（之后不会再出现）'
+          : 'An older cached script is still in use — press Ctrl + F5 to force a refresh (only needed once)';
+        document.getElementById('app').appendChild(notice);
+      }, 3000);
     });
   }
 </script>

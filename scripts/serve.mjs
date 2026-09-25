@@ -36,11 +36,17 @@ async function send(req, res, filePath) {
   const info = await stat(filePath);
   const etag = `W/"${info.size}-${Number(info.mtimeMs).toString(36)}"`;
   const rel = path.relative(ROOT, filePath).split(path.sep).join('/');
-  // 引擎与贴图不会变 → 强缓存；数据文件可能更新 → 1 小时 + ETag 校验
-  const cacheControl = ext === '.html'
-    ? 'no-cache'
-    : rel.startsWith('vendor/')
-      ? 'public, max-age=31536000, immutable'
+  // 缓存策略：
+  //  - html / js / css 一律 no-cache：带 ETag 校验，没改就 304（几乎零开销），
+  //    改了立刻生效。之前给 .js 发 24 小时强缓存，导致"改了代码但浏览器还在跑旧的"
+  //    ——新增的语言切换按钮就是这样消失的。
+  //  - vendor/ 里的引擎与贴图不会变 → 一年 immutable
+  //  - data/ 里的年代数据可能更新 → 1 小时
+  const REVALIDATE = new Set(['.html', '.js', '.mjs', '.css']);
+  const cacheControl = rel.startsWith('vendor/')
+    ? 'public, max-age=31536000, immutable'
+    : REVALIDATE.has(ext)
+      ? 'no-cache'
       : rel.startsWith('data/')
         ? 'public, max-age=3600'
         : 'public, max-age=86400';

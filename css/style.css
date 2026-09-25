@@ -292,22 +292,33 @@ body::before {
 }
 .brand-text p { margin: 4px 0 0; font-size: 11px; letter-spacing: 1.2px; color: var(--muted); }
 
-/* ---------- 语言切换 ---------- */
+/* ---------- 语言切换卡片（右上角） ---------- */
 
+.hud-lang {
+  top: var(--hud-pad);
+  right: var(--hud-pad);
+  padding: 9px 12px 11px;
+  text-align: center;
+}
+.lang-title {
+  font-size: 9.5px;
+  letter-spacing: 2.4px;
+  color: var(--muted);
+  margin-bottom: 7px;
+}
 .lang-switch {
   display: flex;
   align-items: stretch;
-  margin-left: 14px;
   border: 1px solid rgba(88, 232, 255, 0.28);
   background: rgba(88, 232, 255, 0.05);
 }
 .lang-btn {
-  padding: 4px 9px;
+  padding: 5px 14px;
   background: transparent;
   border: 0;
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 11.5px;
   letter-spacing: 0.5px;
   cursor: pointer;
   transition: background 140ms ease, color 140ms ease;
@@ -317,6 +328,24 @@ body::before {
 .lang-btn.active { color: #041018; background: var(--cyan); font-weight: 700; }
 .lang-btn:focus-visible { outline: 1px solid var(--amber); outline-offset: 1px; }
 
+/* ---------- 缓存过期提示（内联脚本在检测到旧版脚本时插入） ---------- */
+
+.hud-notice {
+  left: 50%;
+  top: 92px;
+  transform: translateX(-50%);
+  max-width: min(560px, calc(100% - 2 * var(--hud-pad)));
+  padding: 9px 16px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #ffe6bd;
+  border-color: rgba(255, 195, 107, 0.55);
+  text-align: center;
+}
+@media (max-width: 820px) {
+  .hud-notice { top: auto; bottom: 200px; font-size: 11px; padding: 7px 12px; }
+}
+
 /* 英文界面下，纯拉丁文案的字距收紧一点更好读 */
 :root[data-lang="en"] .brand-text h1 { letter-spacing: 2px; }
 :root[data-lang="en"] .tl-stats { letter-spacing: 0.4px; }
@@ -324,6 +353,7 @@ body::before {
 :root[data-lang="en"] .btn { letter-spacing: 0.4px; }
 :root[data-lang="en"] .event-name { font-size: 11.5px; }
 :root[data-lang="en"] .detail-grid dd { font-size: 12px; }
+:root[data-lang="en"] .lang-btn { padding: 5px 10px; letter-spacing: 0; }
 
 /* ---------- 纪年读数 ---------- */
 
@@ -635,7 +665,9 @@ body::before {
   .year-value { font-size: 24px; }
   .year-label { font-size: 11px; }
   .year-meta { display: none; }
-  .hud-detail { top: 76px; right: var(--hud-pad); left: var(--hud-pad); width: auto; }
+  .hud-detail { top: 92px; right: var(--hud-pad); left: var(--hud-pad); width: auto; }
+  .hud-lang { padding: 7px 10px 9px; }
+  .lang-title { display: none; }
   .hud-timeline { padding: 9px 12px 11px; }
   .tl-hint { display: none; }
   .timeline-controls { gap: 6px; }
